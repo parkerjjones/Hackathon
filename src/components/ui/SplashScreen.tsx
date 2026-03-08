@@ -8,17 +8,8 @@ interface SplashScreenProps {
 }
 
 const BOOT_LINES = [
-  'WORLDVIEW TACTICAL INTELLIGENCE SYSTEM',
+  'Reticulum Network',
   '═════════════════════════════════════',
-  '',
-  'INITIALISING CESIUM 3D ENGINE............ OK',
-  'LOADING GOOGLE PHOTOREALISTIC 3D TILES.. OK',
-  'CONNECTING OPENSKY NETWORK.............. OK',
-  'LOADING CELESTRAK SATELLITE DATA........ OK',
-  'CONNECTING USGS SEISMIC FEED............ OK',
-  'CONNECTING GLOBAL CCTV NETWORK.......... OK',
-  'COMPILING POST-PROCESSING SHADERS....... OK',
-  'BUILDING TACTICAL DISPLAY OVERLAY....... OK',
   '',
   'ALL SYSTEMS NOMINAL',
   '',
