@@ -59,7 +59,6 @@ function App() {
     flights: false,        // not shown in UI
     earthquakes: true,
     traffic: false,        
-    ships: false,
   });
 
   // State: flight sub-toggles
