@@ -1,20 +1,16 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { Viewer as CesiumViewer, Cartesian3, Math as CesiumMath, Entity as CesiumEntity } from 'cesium';
-import type { CameraFeed } from './types/camera';
+import { Viewer as CesiumViewer, Cartesian3, Math as CesiumMath } from 'cesium';
 import GlobeViewer from './components/globe/GlobeViewer';
 import EarthquakeLayer from './components/layers/EarthquakeLayer';
 import SatelliteLayer from './components/layers/SatelliteLayer';
 import FlightLayer from './components/layers/FlightLayer';
 import TrafficLayer from './components/layers/TrafficLayer';
-import CCTVLayer from './components/layers/CCTVLayer';
-import ShipLayer from './components/layers/ShipLayer';
 import type { AltitudeBand } from './components/layers/FlightLayer';
 import type { SatelliteCategory } from './components/layers/SatelliteLayer';
 import OperationsPanel from './components/ui/OperationsPanel';
 import StatusBar from './components/ui/StatusBar';
 import IntelFeed from './components/ui/IntelFeed';
 import AudioToggle from './components/ui/AudioToggle';
-import CCTVPanel from './components/ui/CCTVPanel';
 import Crosshair from './components/ui/Crosshair';
 import TrackedEntityPanel from './components/ui/TrackedEntityPanel';
 import SplashScreen from './components/ui/SplashScreen';
@@ -24,8 +20,6 @@ import { useSatellites } from './hooks/useSatellites';
 import { useFlights } from './hooks/useFlights';
 import { useFlightsLive } from './hooks/useFlightsLive';
 import { useTraffic } from './hooks/useTraffic';
-import { useCameras } from './hooks/useCameras';
-import { useShips } from './hooks/useShips';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useIsMobile } from './hooks/useIsMobile';
 import { useAudio } from './hooks/useAudio';
@@ -45,27 +39,6 @@ const DEFAULT_SATELLITE_FILTER: Record<SatelliteCategory, boolean> = {
   iss: true,
   other: true,
 };
-
-/**
- * Convert a viewDirection compass string (e.g. "East", "N-W") to heading
- * degrees clockwise from North.  Returns null if the string is absent or
- * unrecognised.
- */
-function parseViewDirection(dir?: string): number | null {
-  if (!dir) return null;
-  const normalised = dir.trim().toUpperCase().replace(/\s+/g, '');
-  const map: Record<string, number> = {
-    N: 0, NORTH: 0,
-    NE: 45, 'N-E': 45, NORTHEAST: 45, 'NORTH-EAST': 45,
-    E: 90, EAST: 90,
-    SE: 135, 'S-E': 135, SOUTHEAST: 135, 'SOUTH-EAST': 135,
-    S: 180, SOUTH: 180,
-    SW: 225, 'S-W': 225, SOUTHWEST: 225, 'SOUTH-WEST': 225,
-    W: 270, WEST: 270,
-    NW: 315, 'N-W': 315, NORTHWEST: 315, 'NORTH-WEST': 315,
-  };
-  return map[normalised] ?? null;
-}
 
 function App() {
   // Responsive breakpoint
@@ -88,17 +61,12 @@ function App() {
 
   // State: data layer visibility
   const [layers, setLayers] = useState({
-    flights: true,
+    flights: false,        // not shown in UI
     satellites: true,
     earthquakes: true,
-    traffic: false,
-    cctv: true,
+    traffic: false,        
     ships: false,
   });
-
-  // State: CCTV country filter
-  const [cctvCountryFilter, setCctvCountryFilter] = useState('ALL');
-  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
 
   // State: flight sub-toggles
   const [showPaths, setShowPaths] = useState(false);
@@ -119,26 +87,10 @@ function App() {
 
   // State: tracked entity (lock view)
   const [trackedEntity, setTrackedEntity] = useState<TrackedEntityInfo | null>(null);
-  const cctvTrackEntityRef = useRef<CesiumEntity | null>(null);
-
-  /** Remove the temporary Cesium Entity used for CCTV lock-on */
-  const cleanupCctvEntity = useCallback(() => {
-    if (cctvTrackEntityRef.current) {
-      const viewer = viewerRef.current;
-      if (viewer && !viewer.isDestroyed()) {
-        viewer.entities.remove(cctvTrackEntityRef.current);
-      }
-      cctvTrackEntityRef.current = null;
-    }
-  }, []);
 
   const handleTrackEntity = useCallback((info: TrackedEntityInfo | null) => {
     setTrackedEntity(info);
-    // When tracking something else or clearing, clean up CCTV entity
-    if (!info || info.entityType !== 'cctv') {
-      cleanupCctvEntity();
-    }
-  }, [cleanupCctvEntity]);
+  }, []);
 
   const handleViewerReady = useCallback((viewer: CesiumViewer) => {
     viewerRef.current = viewer;
@@ -177,16 +129,7 @@ function App() {
     camera.longitude,
     camera.altitude,
   );
-  const { ships, feedItems: shipFeedItems, isLoading: shipsLoading } = useShips(layers.ships);
-  const {
-    cameras: cctvCameras,
-    feedItems: cctvFeedItems,
-    isLoading: cctvLoading,
-    error: cctvError,
-    totalOnline: cctvOnline,
-    totalCameras: cctvTotal,
-    availableCountries: cctvCountries,
-  } = useCameras(layers.cctv, cctvCountryFilter);
+  // ships hook removed; layer not visible
 
   // Geolocation hook — browser GPS (consent) + IP fallback
   const { location: geoLocation, status: geoStatus, locate: geoLocate } = useGeolocation();
@@ -257,7 +200,7 @@ function App() {
   }, [flightsGlobal, flightsLive]);
 
   // Combine intel feed items
-  const allFeedItems: IntelFeedItem[] = [...fltFeedItems, ...satFeedItems, ...eqFeedItems, ...cctvFeedItems, ...shipFeedItems];
+  const allFeedItems: IntelFeedItem[] = [...fltFeedItems, ...satFeedItems, ...eqFeedItems];
 
   // Handlers
   const handleCameraChange = useCallback(
@@ -267,82 +210,13 @@ function App() {
     []
   );
 
-  const handleLayerToggle = useCallback((layer: 'flights' | 'satellites' | 'earthquakes' | 'traffic' | 'cctv' | 'ships') => {
+  const handleLayerToggle = useCallback((layer: 'satellites' | 'earthquakes') => {
     setLayers((prev) => {
-      const next = !prev[layer];
+      const next = !prev[layer as keyof typeof prev];
       audio.play(next ? 'toggleOn' : 'toggleOff');
       return { ...prev, [layer]: next };
     });
   }, [audio]);
-
-  /** Select a camera in the panel (shows feed preview, no fly) */
-  const handleSelectCamera = useCallback((cam: CameraFeed | null) => {
-    setSelectedCameraId(cam ? cam.id : null);
-  }, []);
-
-  /** Lock-on to a CCTV camera: select, create entity, set trackedEntity */
-  const handleCctvLockOn = useCallback((cam: CameraFeed) => {
-    const viewer = viewerRef.current;
-    if (!viewer || viewer.isDestroyed()) return;
-
-    setSelectedCameraId(cam.id);
-
-    // Clean up any previous CCTV tracking entity
-    cleanupCctvEntity();
-
-    // Create a temporary Cesium Entity at the camera position for lock-on
-    const entity = viewer.entities.add({
-      position: Cartesian3.fromDegrees(cam.longitude, cam.latitude, 0),
-      name: cam.name,
-      description: [
-        `<b>Source:</b> ${cam.source.toUpperCase()}`,
-        `<b>Country:</b> ${cam.countryName}`,
-        `<b>Region:</b> ${cam.region || 'N/A'}`,
-        `<b>Status:</b> ${cam.available ? 'ONLINE' : 'OFFLINE'}`,
-        `<b>Coords:</b> ${cam.latitude.toFixed(4)}°, ${cam.longitude.toFixed(4)}°`,
-      ].join('<br/>') as any,
-    });
-
-    // Street-level viewFrom: close-in with optional heading match
-    // viewFrom is in the entity's local ENU frame (x=East, y=North, z=Up)
-    const ALT = 300;  // metres above ground
-    const DEFAULT_HDG = 160; // degrees — default viewing heading when camera has none
-    const DIST = 200; // metres behind the look-point
-    const headingDeg = parseViewDirection(cam.viewDirection) ?? DEFAULT_HDG;
-    const hRad = CesiumMath.toRadians(headingDeg);
-    entity.viewFrom = new Cartesian3(
-      -DIST * Math.sin(hRad), // east component (negative = behind heading)
-      -DIST * Math.cos(hRad), // north component
-      ALT,
-    ) as any;
-
-    cctvTrackEntityRef.current = entity;
-
-    // Lock on — Cesium flies to and centres the entity
-    viewer.trackedEntity = entity;
-
-    // Set React tracked-entity state for the tracking panel UI
-    setTrackedEntity({
-      name: cam.name,
-      entityType: 'cctv',
-      description: [
-        `<b>Source:</b> ${cam.source.toUpperCase()}`,
-        `<b>Country:</b> ${cam.countryName}`,
-        `<b>Region:</b> ${cam.region || 'N/A'}`,
-        `<b>Status:</b> ${cam.available ? 'ONLINE' : 'OFFLINE'}`,
-      ].join('<br/>'),
-    });
-  }, [cleanupCctvEntity]);
-
-  /** Handle FLY TO from CCTVPanel — locks on (same as globe click) */
-  const handleFlyToCamera = useCallback((cam: CameraFeed) => {
-    handleCctvLockOn(cam);
-  }, [handleCctvLockOn]);
-
-  /** Handle CCTV billboard click on the globe (from EntityClickHandler) */
-  const handleCctvClickOnGlobe = useCallback((camData: any) => {
-    handleCctvLockOn(camData as CameraFeed);
-  }, [handleCctvLockOn]);
 
   const handleAltitudeToggle = useCallback((band: AltitudeBand) => {
     audio.play('click');
@@ -383,7 +257,6 @@ function App() {
         onCameraChange={handleCameraChange}
         onTrackEntity={handleTrackEntity}
         onViewerReady={handleViewerReady}
-        onCctvClick={handleCctvClickOnGlobe}
       >
         <EarthquakeLayer earthquakes={earthquakes} visible={layers.earthquakes} isTracking={!!trackedEntity} />
         <SatelliteLayer satellites={satellites} visible={layers.satellites} showPaths={showSatPaths} categoryFilter={satCategoryFilter} isTracking={!!trackedEntity} />
@@ -402,16 +275,6 @@ function App() {
           showVehicles={true}
           congestionMode={false}
         />
-        <CCTVLayer
-          cameras={cctvCameras}
-          visible={layers.cctv}
-          selectedCameraId={selectedCameraId}
-        />
-        <ShipLayer
-          ships={ships}
-          visible={layers.ships}
-          isTracking={!!trackedEntity}
-        />
       </GlobeViewer>
 
       {/* Tactical UI Overlay */}
@@ -421,7 +284,7 @@ function App() {
         shaderMode={shaderMode}
         onShaderChange={(mode) => { audio.play('shaderSwitch'); setShaderMode(mode); }}
         layers={layers}
-        layerLoading={{ ships: shipsLoading }}
+        layerLoading={{}}
         onLayerToggle={handleLayerToggle}
         mapTiles={mapTiles}
         onMapTilesChange={(t) => { audio.play('click'); setMapTiles(t); }}
@@ -439,32 +302,13 @@ function App() {
         isMobile={isMobile}
       />
       <IntelFeed items={allFeedItems} isMobile={isMobile} />
-      {layers.cctv && (
-        <CCTVPanel
-          cameras={cctvCameras}
-          isLoading={cctvLoading}
-          error={cctvError}
-          totalOnline={cctvOnline}
-          totalCameras={cctvTotal}
-          availableCountries={cctvCountries}
-          countryFilter={cctvCountryFilter}
-          selectedCameraId={selectedCameraId}
-          onCountryFilterChange={setCctvCountryFilter}
-          onSelectCamera={handleSelectCamera}
-          onFlyToCamera={handleFlyToCamera}
-          isMobile={isMobile}
-        />
-      )}
       <StatusBar
         camera={camera}
         shaderMode={shaderMode}
         isMobile={isMobile}
         dataStatus={{
-          flights: flights.length,
           satellites: satellites.length,
           earthquakes: earthquakes.length,
-          cctv: cctvTotal,
-          ships: ships.length,
         }}
       />
       <AudioToggle muted={audio.muted} onToggle={audio.toggleMute} isMobile={isMobile} />

@@ -9,16 +9,13 @@ interface OperationsPanelProps {
   shaderMode: ShaderMode;
   onShaderChange: (mode: ShaderMode) => void;
   layers: {
-    flights: boolean;
     satellites: boolean;
     earthquakes: boolean;
-    traffic: boolean;
-    cctv: boolean;
-    ships: boolean;
+    // other layers are managed elsewhere but not toggled here
   };
-  onLayerToggle: (layer: 'flights' | 'satellites' | 'earthquakes' | 'traffic' | 'cctv' | 'ships') => void;
+  onLayerToggle: (layer: 'satellites' | 'earthquakes') => void;
   /** Optional per-layer loading state (e.g. ships takes ~20s on first fetch) */
-  layerLoading?: Partial<Record<'flights' | 'satellites' | 'earthquakes' | 'traffic' | 'cctv' | 'ships', boolean>>;
+  layerLoading?: Partial<Record<'satellites' | 'earthquakes', boolean>>;
   mapTiles: 'google' | 'osm';
   onMapTilesChange: (tile: 'google' | 'osm') => void;
   showPaths: boolean;
@@ -42,22 +39,11 @@ const SHADER_OPTIONS: { value: ShaderMode; label: string; colour: string }[] = [
   { value: 'flir', label: 'FLIR', colour: 'text-wv-amber' },
 ];
 
-const LAYER_OPTIONS: { key: 'flights' | 'satellites' | 'earthquakes' | 'traffic' | 'cctv' | 'ships'; label: string; icon: string }[] = [
-  { key: 'flights', label: 'LIVE FLIGHTS', icon: '✈' },
+const LAYER_OPTIONS: { key: 'satellites' | 'earthquakes'; label: string; icon: string }[] = [
   { key: 'satellites', label: 'SATELLITES', icon: '🛰' },
   { key: 'earthquakes', label: 'SEISMIC', icon: '🌍' },
-  { key: 'traffic', label: 'STREET TRAFFIC', icon: '🚗' },
-  { key: 'cctv', label: 'CCTV FEEDS', icon: '📹' },
-  { key: 'ships', label: 'NAVAL / AIS', icon: '🚢' },
 ];
 
-const ALTITUDE_BANDS: { band: AltitudeBand; label: string; colour: string; dotColour: string }[] = [
-  { band: 'cruise', label: 'CRUISE ≥FL350', colour: 'text-[#00D4FF]', dotColour: 'bg-[#00D4FF]' },
-  { band: 'high', label: 'HIGH FL200–349', colour: 'text-[#00BFFF]', dotColour: 'bg-[#00BFFF]' },
-  { band: 'mid', label: 'MID FL100–199', colour: 'text-[#FFD700]', dotColour: 'bg-[#FFD700]' },
-  { band: 'low', label: 'LOW FL030–099', colour: 'text-[#FF8C00]', dotColour: 'bg-[#FF8C00]' },
-  { band: 'ground', label: 'NEAR GND <3K', colour: 'text-[#FF4444]', dotColour: 'bg-[#FF4444]' },
-];
 
 const SATELLITE_CATEGORIES: { category: SatelliteCategory; label: string; colour: string; dotColour: string; icon: string }[] = [
   { category: 'iss', label: 'ISS', colour: 'text-[#00D4FF]', dotColour: 'bg-[#00D4FF]', icon: '🚀' },
@@ -72,10 +58,6 @@ export default function OperationsPanel({
   onLayerToggle,
   mapTiles,
   onMapTilesChange,
-  showPaths,
-  onShowPathsToggle,
-  altitudeFilter,
-  onAltitudeToggle,
   showSatPaths,
   onShowSatPathsToggle,
   satCategoryFilter,
@@ -181,49 +163,7 @@ export default function OperationsPanel({
         </div>
       </div>
 
-      {/* Flight Filters Section */}
-      {layers.flights && (
-        <div className="p-3">
-          <div className="text-[9px] text-wv-muted tracking-widest uppercase mb-2">Flight Filters</div>
-          <button
-            onClick={onShowPathsToggle}
-            className={`
-              flex items-center gap-2 px-2 py-1.5 rounded text-[10px] w-full
-              transition-all duration-200 text-left mb-1
-              ${isMobile ? 'min-h-[44px]' : ''}
-              ${showPaths
-                ? 'text-wv-cyan bg-wv-cyan/10'
-                : 'text-wv-muted hover:text-wv-text hover:bg-white/5'
-              }
-            `}
-          >
-            <span className="text-sm">⟿</span>
-            <span className="tracking-wider">ROUTE PATHS</span>
-            <span className={`ml-auto w-1.5 h-1.5 rounded-full ${showPaths ? 'bg-wv-cyan' : 'bg-wv-muted/30'}`} />
-          </button>
-          <div className="text-[8px] text-wv-muted tracking-widest uppercase mt-2 mb-1 px-1">Altitude Bands</div>
-          <div className="flex flex-col gap-0.5">
-            {ALTITUDE_BANDS.map(({ band, label, colour, dotColour }) => (
-              <button
-                key={band}
-                onClick={() => onAltitudeToggle(band)}
-                className={`
-                  flex items-center gap-2 px-2 py-1 rounded text-[9px]
-                  transition-all duration-200 text-left
-                  ${isMobile ? 'min-h-[40px]' : ''}
-                  ${altitudeFilter[band]
-                    ? `${colour} bg-white/5`
-                    : 'text-wv-muted/40 hover:text-wv-muted hover:bg-white/5 line-through'
-                  }
-                `}
-              >
-                <span className={`w-2 h-2 rounded-full ${altitudeFilter[band] ? dotColour : 'bg-wv-muted/20'}`} />
-                <span className="tracking-wider">{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Satellite Filters Section */}
       {layers.satellites && (

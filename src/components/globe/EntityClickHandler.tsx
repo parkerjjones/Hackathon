@@ -25,20 +25,12 @@ function isHelperEntity(name: string | undefined): boolean {
 
 export interface TrackedEntityInfo {
   name: string;
-  entityType: 'satellite' | 'aircraft' | 'ship' | 'earthquake' | 'cctv' | 'unknown';
+  entityType: 'satellite' | 'aircraft' | 'ship' | 'earthquake' | 'unknown';
   description: string;
-}
-
-/** Duck-type check: is this a CCTV CameraFeed object stored as billboard id? */
-function isCameraFeed(obj: unknown): obj is { id: string; name: string; latitude: number; longitude: number; source: string; country: string; countryName: string; region: string; available: boolean } {
-  if (!obj || typeof obj !== 'object') return false;
-  const o = obj as Record<string, unknown>;
-  return typeof o.latitude === 'number' && typeof o.longitude === 'number' && typeof o.source === 'string' && typeof o.name === 'string';
 }
 
 interface EntityClickHandlerProps {
   onTrackEntity?: (info: TrackedEntityInfo | null) => void;
-  onCctvClick?: (cameraData: any) => void;
 }
 
 /**
@@ -46,13 +38,11 @@ interface EntityClickHandlerProps {
  * - Click entity → zoom in and lock camera to track it
  * - Click empty space / ESC → unlock but keep current camera position
  */
-export default function EntityClickHandler({ onTrackEntity, onCctvClick }: EntityClickHandlerProps) {
+export default function EntityClickHandler({ onTrackEntity }: EntityClickHandlerProps) {
   const { viewer } = useCesium();
   const isTrackingRef = useRef(false);
   const onTrackEntityRef = useRef(onTrackEntity);
   onTrackEntityRef.current = onTrackEntity;
-  const onCctvClickRef = useRef(onCctvClick);
-  onCctvClickRef.current = onCctvClick;
 
   /** Unlock tracking without moving the camera */
   const unlock = useCallback(() => {
@@ -100,17 +90,6 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
           const candidate = singlePick.id as CesiumEntity;
           if (!isHelperEntity(candidate.name) && candidate.position) {
             entity = candidate;
-          }
-        }
-      }
-
-      // --- Check for CCTV billboard pick (stored CameraFeed as id) ---
-      if (!entity) {
-        const allPicks = singlePick ? [...pickedList, singlePick] : pickedList;
-        for (const picked of allPicks) {
-          if (isCameraFeed(picked?.id)) {
-            onCctvClickRef.current?.(picked.id);
-            return;
           }
         }
       }

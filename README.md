@@ -6,7 +6,7 @@
 
 <p align="center">
   A real-time global intelligence dashboard rendered on a 3D CesiumJS globe.<br/>
-  Track flights, satellites, ships, earthquakes, traffic, and CCTV cameras — all in one tactical interface.
+  Track flights, satellites, ships, earthquakes, and traffic — all in one tactical interface.
 </p>
 
 <p align="center">
@@ -39,13 +39,12 @@ WorldView is a full-stack tactical intelligence platform that aggregates multipl
 | 🌋 **Earthquakes** | USGS GeoJSON | 60 s | Past 24 hours, magnitude-scaled pulsing markers with colour coding |
 | 🚗 **Traffic** | OpenStreetMap Overpass | On-demand | Road network overlay with animated vehicle particle simulation |
 | � **Naval / AIS** | AISStream.io WebSocket | 30 s (20 s burst + 60 s cache) | Global vessel tracking with ship type categorisation, heading trails, dead-reckoning |
-| �📹 **CCTV** | TfL, Austin TX, Transport NSW | 5 min | Live camera feeds from London, Austin, and New South Wales |
 
 ---
 
 ## Screenshots
 
-> *Boot sequence → 3D globe with tactical overlays → CCTV surveillance panel*
+> *Boot sequence → 3D globe with tactical overlays*
 
 The interface features:
 - **Splash screen** — Military-style boot sequence with typewriter animation
@@ -119,7 +118,6 @@ Then edit each file with your own API keys (see [Obtaining API Keys](#obtaining-
 | `VITE_GOOGLE_API_KEY` | Optional | Google Maps 3D Photorealistic Tiles (falls back to OpenStreetMap) |
 | `VITE_CESIUM_ION_TOKEN` | Optional | Cesium Ion terrain/imagery services |
 | `WINDY_API_KEY` | Optional | Windy webcam API (reserved, not yet active) |
-| `NSW_TRANSPORT_API_KEY` | Optional | Transport for NSW CCTV cameras |
 | `AISSTREAM_API_KEY` | Optional | AISStream.io global AIS ship tracking |
 
 **`server/.env`** — Server-side (loaded by `dotenv`):
@@ -155,14 +153,7 @@ Then edit each file with your own API keys (see [Obtaining API Keys](#obtaining-
 2. Go to **Access Tokens** → copy your default token
 3. Paste into `VITE_CESIUM_ION_TOKEN` in your `.env`
 
-### 📹 Transport for NSW API Key (for Australian CCTV cameras)
-
-1. Register at [opendata.transport.nsw.gov.au](https://opendata.transport.nsw.gov.au/)
-2. Go to **My Applications** → **Create Application**
-3. Subscribe to the **Traffic & Cameras** API
-4. Copy your API key into `NSW_TRANSPORT_API_KEY` in your `.env`
-
-### 🚢 AISStream.io API Key (for Naval / AIS ship tracking)
+###  AISStream.io API Key (for Naval / AIS ship tracking)
 
 1. Sign up for a free account at [aisstream.io](https://aisstream.io/)
 2. Log in → navigate to your Dashboard
@@ -231,7 +222,6 @@ In your Vercel project dashboard:
 | `VITE_GOOGLE_API_KEY` | Production, Preview |
 | `VITE_CESIUM_ION_TOKEN` | Production, Preview |
 | `WINDY_API_KEY` | Production, Preview |
-| `NSW_TRANSPORT_API_KEY` | Production, Preview |
 | `GOOGLE_MAPS_API_KEY` | Production, Preview |
 | `OPENSKY_CLIENT_ID` | Production, Preview |
 | `OPENSKY_CLIENT_SECRET` | Production, Preview |
@@ -255,7 +245,6 @@ In your Vercel project dashboard:
 │  │ (data fetch) │──│ (state mgr) │──│  OperationsPanel │  │
 │  │              │  │             │  │  IntelFeed       │  │
 │  └──────┬───────┘  └──────┬──────┘  │  StatusBar       │  │
-│         │                 │         │  CCTVPanel        │  │
 │         │          ┌──────┴──────┐  │  TrackedEntity    │  │
 │         │          │ GlobeViewer │  └──────────────────┘  │
 │         │          │  (Cesium)   │                         │
@@ -265,7 +254,6 @@ In your Vercel project dashboard:
 │         │          │ │ Sats    │ │                         │
 │         │          │ │ Quakes  │ │                         │
 │         │          │ │ Traffic │ │                         │
-│         │          │ │ CCTV    │ │                         │
 │         │          │ └─────────┘ │                         │
 │         │          └─────────────┘                         │
 └─────────┼──────────────────────────────────────────────────┘
@@ -289,11 +277,11 @@ In your Vercel project dashboard:
                           │
           ┌───────────────┼───────────────┬───────────────┐
           ▼               ▼               ▼               ▼
-   ┌─────────────┐ ┌─────────────┐ ┌──────────────┐ ┌──────────────┐
-   │ FlightRadar │ │ USGS        │ │ TfL / Austin │ │ AISStream.io │
-   │ adsb.fi     │ │ CelesTrak   │ │ NSW Transport│ │  (AIS WSS)   │
-   │ OpenSky     │ │ Overpass API│ │              │ │              │
-   └─────────────┘ └─────────────┘ └──────────────┘ └──────────────┘
+   ┌─────────────┐ ┌─────────────┐ ┌──────────────┐
+   │ FlightRadar │ │ USGS        │ │ AISStream.io │
+   │ adsb.fi     │ │ CelesTrak   │ │  (AIS WSS)   │
+   │ OpenSky     │ │ Overpass API│ │              │
+   └─────────────┘ └─────────────┘ └──────────────┘
 ```
 
 ### Data Flow
@@ -341,12 +329,10 @@ worldview/
 │   │   │   ├── SatelliteLayer.tsx # SGP4 orbit propagation
 │   │   │   ├── EarthquakeLayer.tsx # Pulsing seismic markers
 │   │   │   ├── TrafficLayer.tsx   # Roads + animated vehicles
-│   │   │   ├── ShipLayer.tsx      # AIS vessels (imperative, dead-reckoning)
-│   │   │   └── CCTVLayer.tsx      # Camera markers (imperative)
+│   │   │   └── ShipLayer.tsx      # AIS vessels (imperative, dead-reckoning)
 │   │   └── ui/
 │   │       ├── OperationsPanel.tsx # Layer/shader/filter controls
 │   │       ├── IntelFeed.tsx      # Real-time event feed
-│   │       ├── CCTVPanel.tsx      # Camera grid + preview
 │   │       ├── StatusBar.tsx      # Coords, clock, data counts
 │   │       ├── SplashScreen.tsx   # Boot sequence
 │   │       ├── TrackedEntityPanel.tsx # Lock-on detail
@@ -359,12 +345,9 @@ worldview/
 │   │   ├── useSatellites.ts      # TLE fetch + SGP4 pipeline
 │   │   ├── useEarthquakes.ts     # USGS polling
 │   │   ├── useTraffic.ts         # Road fetch + vehicle simulation
-│   │   ├── useShips.ts           # AIS vessel polling + burst WebSocket
-│   │   └── useCameras.ts         # CCTV aggregation
+│   │   └── useShips.ts           # AIS vessel polling + burst WebSocket
 │   ├── shaders/
 │   │   └── postprocess.ts        # GLSL: CRT, NVG, FLIR
-│   └── types/
-│       └── camera.ts             # CameraFeed, CameraSource types
 ├── .env                           # Client-side env vars
 ├── package.json
 ├── vite.config.ts                 # Vite + React + Cesium + Tailwind + proxy
@@ -429,14 +412,6 @@ Press **ESC** to unlock tracking without moving the camera.
 - **Globe occlusion:** Vessels on the far side of the globe are automatically hidden
 - **Loading indicator:** Amber pulsing "LOADING" state while first burst WebSocket completes
 
-### �📹 CCTV System
-
-- **Multi-source aggregation:** London (TfL JamCams), Austin TX (Open Data), NSW Australia (Transport API)
-- **Country filtering:** Toggle cameras by country (GB, US, AU)
-- **Image proxy:** Backend proxies camera images to avoid CORS issues
-- **Thumbnail grid:** Paginated camera grid (30 per page) with lazy-loaded previews
-- **Fly-to:** Click any camera to lock the globe view onto its location
-
 ---
 
 ## API Endpoints (Backend Proxy)
@@ -449,8 +424,6 @@ Press **ESC** to unlock tracking without moving the camera.
 | `GET` | `/api/earthquakes` | 60 s | USGS GeoJSON feed (past 24 hours) |
 | `GET` | `/api/traffic/roads?south=X&west=Y&north=Z&east=W` | 24 hr | Road network from Overpass API |
 | `GET` | `/api/ships?moving=1` | 60 s (20 s burst) | Global AIS vessel positions via AISStream.io burst WebSocket |
-| `GET` | `/api/cctv?country=XX&source=YY` | 5 min | Aggregated CCTV camera feeds |
-| `GET` | `/api/cctv/image?url=ENCODED_URL` | 60 s | CORS image proxy |
 | `GET` | `/api/health` | — | Server health + cache stats |
 | `WS` | `/ws` | — | Real-time flight push (subscribe via JSON) |
 
@@ -471,7 +444,7 @@ Press **ESC** to unlock tracking without moving the camera.
 | `wv-cyan` | `#00D4FF` | Primary accent, flights |
 | `wv-green` | `#39FF14` | Satellites, success states |
 | `wv-amber` | `#FF9500` | Warnings, earthquakes |
-| `wv-red` | `#FF3B30` | Errors, CCTV, alerts |
+| `wv-red` | `#FF3B30` | Errors, alerts |
 | `wv-teal` | `#00BFA5` | Secondary accent |
 
 ### Typography
@@ -524,7 +497,6 @@ Monospace font stack: `JetBrains Mono`, `Fira Code`, `SF Mono`, `monospace`
 |---|---|
 | Blank globe / no tiles | Check `VITE_GOOGLE_API_KEY` is valid with Maps JavaScript API enabled; the app falls back to OSM automatically |
 | No flight/satellite/earthquake data | Ensure the backend proxy is running (`npm run dev:server`) |
-| CCTV images not loading | Backend must be running to proxy images through `/api/cctv/image` |
 | "429 Too Many Requests" in console | Upstream API rate limit hit; the cache layer reduces frequency, wait for TTL to expire |
 | Overpass API timeout | Traffic layer falls back to static Sydney CBD road data |
 | Satellites not appearing | TLE API may be temporarily down; CelesTrak is used as automatic fallback |
@@ -544,9 +516,6 @@ Monospace font stack: `JetBrains Mono`, `Fira Code`, `SF Mono`, `monospace`
 - [CelesTrak](https://celestrak.org/) — Satellite TLE orbital data
 - [TLE API](https://tle.ivanstanojevic.me/) — Satellite TLE data service
 - [OpenStreetMap / Overpass API](https://overpass-api.de/) — Road network data
-- [Transport for London](https://api.tfl.gov.uk/) — London traffic cameras
-- [City of Austin Open Data](https://data.austintexas.gov/) — Austin traffic cameras
-- [Transport for NSW](https://opendata.transport.nsw.gov.au/) — NSW traffic cameras
 - [AISStream.io](https://aisstream.io/) — Global AIS vessel tracking via WebSocket
 
 ### Technologies

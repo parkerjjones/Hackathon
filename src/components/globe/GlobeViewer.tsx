@@ -38,7 +38,6 @@ interface GlobeViewerProps {
   onCameraChange?: (lat: number, lon: number, alt: number, heading: number, pitch: number) => void;
   onViewerReady?: (viewer: CesiumViewer) => void;
   onTrackEntity?: (info: TrackedEntityInfo | null) => void;
-  onCctvClick?: (cameraData: any) => void;
   children?: React.ReactNode;
 }
 
@@ -131,7 +130,7 @@ function ShaderManager({ shaderMode }: { shaderMode: ShaderMode }) {
   return null;
 }
 
-export default function GlobeViewer({ shaderMode, mapTiles, onCameraChange, onViewerReady, onTrackEntity, onCctvClick, children }: GlobeViewerProps) {
+export default function GlobeViewer({ shaderMode, mapTiles, onCameraChange, onViewerReady, onTrackEntity, children }: GlobeViewerProps) {
   const viewerRef = useRef<CesiumViewer | null>(null);
   const [google3dReady, setGoogle3dReady] = useState(false);
   const google3dTilesetRef = useRef<any>(null);
@@ -277,7 +276,7 @@ export default function GlobeViewer({ shaderMode, mapTiles, onCameraChange, onVi
       />
       <Camera />
       <ShaderManager shaderMode={shaderMode} />
-      <EntityClickHandler onTrackEntity={onTrackEntity} onCctvClick={onCctvClick} />
+      <EntityClickHandler onTrackEntity={onTrackEntity} />
       {children}
     </Viewer>
   );

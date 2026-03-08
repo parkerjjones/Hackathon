@@ -12,7 +12,6 @@ const TYPE_ICONS: Record<TrackedEntityInfo['entityType'], string> = {
   aircraft: '✈',
   ship: '🚢',
   earthquake: '🌍',
-  cctv: '📹',
   unknown: '📍',
 };
 
@@ -21,7 +20,6 @@ const TYPE_LABELS: Record<TrackedEntityInfo['entityType'], string> = {
   aircraft: 'AIRCRAFT',
   ship: 'VESSEL',
   earthquake: 'SEISMIC EVENT',
-  cctv: 'CCTV CAMERA',
   unknown: 'TARGET',
 };
 
@@ -30,7 +28,6 @@ const TYPE_COLORS: Record<TrackedEntityInfo['entityType'], string> = {
   aircraft: 'text-wv-cyan',
   ship: 'text-wv-cyan',
   earthquake: 'text-wv-amber',
-  cctv: 'text-wv-red',
   unknown: 'text-wv-muted',
 };
 
