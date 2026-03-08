@@ -46,7 +46,7 @@ function App() {
   const [shaderMode, setShaderMode] = useState<ShaderMode>('crt');
   const [mapTiles, setMapTiles] = useState<'google' | 'osm'>('google');
 
-  const [layers] = useState({
+  const [layers, setLayers] = useState({
     flights: false,
     earthquakes: true,
     traffic: false,
@@ -97,6 +97,23 @@ function App() {
         roll: 0,
       },
       duration: 2,
+    });
+  }, []);
+
+  const handleGoToSteamboat = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+    viewer.trackedEntity = undefined;
+    setTrackedEntity(null);
+    setSelectedSkiPatrolId(null);
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(-106.8317, 40.4844, 120_000),
+      orientation: {
+        heading: CesiumMath.toRadians(0),
+        pitch: CesiumMath.toRadians(-60),
+        roll: 0,
+      },
+      duration: 2.5,
     });
   }, []);
 
@@ -173,6 +190,14 @@ function App() {
     },
     [],
   );
+
+  const handleLayerToggle = useCallback((layer: 'earthquakes') => {
+    setLayers((prev) => {
+      const next = !prev[layer as keyof typeof prev];
+      audio.play(next ? 'toggleOn' : 'toggleOff');
+      return { ...prev, [layer]: next };
+    });
+  }, [audio]);
 
   const handleLocateMe = useCallback(() => {
     const viewer = viewerRef.current;
@@ -272,9 +297,13 @@ function App() {
       <OperationsPanel
         shaderMode={shaderMode}
         onShaderChange={(mode) => { audio.play('shaderSwitch'); setShaderMode(mode); }}
+        layers={layers}
+        layerLoading={{}}
+        onLayerToggle={handleLayerToggle}
         mapTiles={mapTiles}
         onMapTilesChange={(t) => { audio.play('click'); setMapTiles(t); }}
         onResetView={() => { audio.play('click'); handleResetView(); }}
+        onGoToSteamboat={() => { audio.play('click'); handleGoToSteamboat(); }}
         onLocateMe={() => { audio.play('click'); handleLocateMe(); }}
         geoStatus={geoStatus}
         isMobile={isMobile}

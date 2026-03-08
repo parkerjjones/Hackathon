@@ -7,9 +7,15 @@ import MobileModal from './MobileModal';
 interface OperationsPanelProps {
   shaderMode: ShaderMode;
   onShaderChange: (mode: ShaderMode) => void;
+  layers: {
+    earthquakes: boolean;
+  };
+  onLayerToggle: (layer: 'earthquakes') => void;
+  layerLoading?: Partial<Record<'earthquakes', boolean>>;
   mapTiles: 'google' | 'osm';
   onMapTilesChange: (tile: 'google' | 'osm') => void;
   onResetView: () => void;
+  onGoToSteamboat: () => void;
   onLocateMe: () => void;
   geoStatus: GeoStatus;
   isMobile: boolean;
@@ -24,6 +30,10 @@ const SHADER_OPTIONS: { value: ShaderMode; label: string; colour: string }[] = [
   { value: 'crt', label: 'CRT', colour: 'text-wv-cyan' },
   { value: 'nvg', label: 'NVG', colour: 'text-wv-green' },
   { value: 'flir', label: 'FLIR', colour: 'text-wv-amber' },
+];
+
+const LAYER_OPTIONS: { key: 'earthquakes'; label: string; icon: string }[] = [
+  { key: 'earthquakes', label: 'SEISMIC', icon: 'E' },
 ];
 
 function NodeStatusCard({ node, onClick }: { node: ReticulumNode; onClick?: () => void }) {
@@ -147,9 +157,13 @@ function InterfaceCard({ iface }: { iface: RNSInterface }) {
 export default function OperationsPanel({
   shaderMode,
   onShaderChange,
+  layers,
+  onLayerToggle,
+  layerLoading = {},
   mapTiles,
   onMapTilesChange,
   onResetView,
+  onGoToSteamboat,
   onLocateMe,
   geoStatus,
   isMobile,
@@ -262,6 +276,43 @@ export default function OperationsPanel({
         </div>
       </div>
 
+      {/* Data Layers */}
+      <div className="p-3 border-b border-wv-border">
+        <div className="text-[9px] text-wv-muted tracking-widest uppercase mb-2">Data Layers</div>
+        <div className="flex flex-col gap-1">
+          {LAYER_OPTIONS.map(({ key, label, icon }) => {
+            const isOn = layers[key];
+            const isLoading = !!layerLoading[key];
+            return (
+              <button
+                key={key}
+                onClick={() => onLayerToggle(key)}
+                className={`
+                  flex items-center gap-2 px-2 py-1.5 rounded text-[10px]
+                  transition-all duration-200 text-left
+                  ${isMobile ? 'min-h-[44px] text-[12px]' : ''}
+                  ${isOn
+                    ? isLoading ? 'text-wv-amber bg-wv-amber/10' : 'text-wv-green bg-wv-green/10'
+                    : 'text-wv-muted hover:text-wv-text hover:bg-white/5'
+                  }
+                `}
+              >
+                <span className="text-sm">{icon}</span>
+                <span className="tracking-wider">{label}</span>
+                {isOn && isLoading ? (
+                  <span className="ml-auto flex items-center gap-1.5">
+                    <span className="text-[8px] text-wv-amber tracking-wider animate-pulse">LOADING</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-wv-amber animate-pulse" />
+                  </span>
+                ) : (
+                  <span className={`ml-auto w-1.5 h-1.5 rounded-full transition-colors duration-300 ${isOn ? 'bg-wv-green' : 'bg-wv-muted/30'}`} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Actions */}
       <div className="p-3 flex flex-col gap-1">
         <button
@@ -288,6 +339,16 @@ export default function OperationsPanel({
                 : 'LOCATE ME'
             }
           </span>
+        </button>
+        <button
+          onClick={onGoToSteamboat}
+          className={`w-full px-3 py-2 rounded text-[10px] font-bold tracking-wider
+            text-wv-cyan bg-wv-cyan/10 hover:bg-wv-cyan/20
+            transition-all duration-200 flex items-center justify-center gap-2
+            ${isMobile ? 'min-h-[48px] text-[12px]' : ''}`}
+        >
+          <span>S</span>
+          <span>STEAMBOAT</span>
         </button>
         <button
           onClick={onResetView}
