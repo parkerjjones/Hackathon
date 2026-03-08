@@ -234,7 +234,7 @@ export default function OperationsPanel({
               key={value}
               onClick={() => onShaderChange(value)}
               className={`
-                px-1 py-1.5 rounded text-[9px] font-bold tracking-wider
+                px-1 py-1.5 rounded text-[9px] font-bold tracking-wider text-center
                 transition-all duration-200
                 ${isMobile ? 'min-h-[44px]' : ''}
                 ${shaderMode === value
@@ -261,7 +261,7 @@ export default function OperationsPanel({
               key={value}
               onClick={() => onMapTilesChange(value)}
               className={`
-                px-2 py-1.5 rounded text-[10px] font-bold tracking-wider
+                px-2 py-1.5 rounded text-[10px] font-bold tracking-wider text-center
                 transition-all duration-200
                 ${isMobile ? 'min-h-[44px]' : ''}
                 ${mapTiles === value
@@ -315,31 +315,6 @@ export default function OperationsPanel({
 
       {/* Actions */}
       <div className="p-3 flex flex-col gap-1">
-        <button
-          onClick={onLocateMe}
-          disabled={geoStatus === 'requesting'}
-          className={`
-            w-full px-3 py-2 rounded text-[10px] font-bold tracking-wider
-            transition-all duration-200 flex items-center justify-center gap-2
-            ${isMobile ? 'min-h-[48px] text-[12px]' : ''}
-            ${geoStatus === 'requesting'
-              ? 'text-wv-cyan/50 bg-wv-cyan/5 cursor-wait'
-              : geoStatus === 'success'
-                ? 'text-wv-green bg-wv-green/10 hover:bg-wv-green/20'
-                : 'text-wv-cyan bg-wv-cyan/10 hover:bg-wv-cyan/20'
-            }
-          `}
-        >
-          <span>{geoStatus === 'requesting' ? '◌' : '◎'}</span>
-          <span>
-            {geoStatus === 'requesting'
-              ? 'LOCATING...'
-              : geoStatus === 'success'
-                ? 'RE-LOCATE'
-                : 'LOCATE ME'
-            }
-          </span>
-        </button>
         <button
           onClick={onGoToSteamboat}
           className={`w-full px-3 py-2 rounded text-[10px] font-bold tracking-wider
@@ -397,12 +372,14 @@ export default function OperationsPanel({
   }
 
   return (
-    <div className="fixed top-4 left-4 w-60 panel-glass rounded-lg overflow-hidden z-40 select-none max-h-[calc(100vh-2rem)] overflow-y-auto">
-      <div className="px-3 py-2 border-b border-wv-border flex items-center gap-2">
+    <div className="fixed top-4 bottom-12 left-4 w-60 panel-glass rounded-lg overflow-hidden z-40 select-none flex flex-col">
+      <div className="px-3 py-2 border-b border-wv-border flex items-center gap-2 shrink-0">
         <div className="w-2 h-2 rounded-full bg-wv-green animate-pulse" />
         <span className="text-[10px] text-wv-muted tracking-widest uppercase">Operations</span>
       </div>
-      {panelContent}
+      <div className="flex-1 min-h-0 flex flex-col justify-between">
+        {panelContent}
+      </div>
     </div>
   );
 }

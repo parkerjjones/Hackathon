@@ -8,40 +8,28 @@ interface ReticulumPanelProps {
   connected: boolean;
   isMobile: boolean;
   onNodeClick?: (node: ReticulumNode) => void;
+  inColumn?: boolean;
 }
 
 interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  fromIdx: number;
-  toIdx: number;
+  x: number; y: number; vx: number; vy: number;
+  life: number; maxLife: number; fromIdx: number; toIdx: number;
 }
 
 function getNodeScreenPos(idx: number, total: number, cx: number, cy: number, radius: number) {
   if (total === 1) return { x: cx, y: cy };
   const angle = (idx / total) * Math.PI * 2 - Math.PI / 2;
-  return {
-    x: cx + Math.cos(angle) * radius,
-    y: cy + Math.sin(angle) * radius,
-  };
+  return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
 }
 
 function NetworkCanvas({
-  nodes,
-  interfaces,
-  connected,
-  onNodeClick,
+  nodes, interfaces, connected, onNodeClick, fillHeight,
 }: {
-  nodes: ReticulumNode[];
-  interfaces: RNSInterface[];
-  connected: boolean;
-  onNodeClick?: (node: ReticulumNode) => void;
+  nodes: ReticulumNode[]; interfaces: RNSInterface[];
+  connected: boolean; onNodeClick?: (node: ReticulumNode) => void; fillHeight?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sizeRef = useRef({ w: 0, h: 0 });
   const particlesRef = useRef<Particle[]>([]);
   const frameRef = useRef(0);
   const timeRef = useRef(0);
@@ -51,208 +39,121 @@ function NetworkCanvas({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    const W = canvas.width;
-    const H = canvas.height;
-    const cx = W / 2;
-    const cy = H / 2;
+    const W = sizeRef.current.w, H = sizeRef.current.h;
+    if (W === 0 || H === 0) { frameRef.current = requestAnimationFrame(draw); return; }
+    const cx = W / 2, cy = H / 2;
     const radius = Math.min(W, H) * 0.32;
     const t = timeRef.current;
 
     ctx.clearRect(0, 0, W, H);
 
-    // Background gradient
     const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, W * 0.6);
-    grad.addColorStop(0, 'rgba(0, 212, 255, 0.03)');
-    grad.addColorStop(0.5, 'rgba(57, 255, 20, 0.01)');
+    grad.addColorStop(0, 'rgba(0,212,255,0.03)');
+    grad.addColorStop(0.5, 'rgba(57,255,20,0.01)');
     grad.addColorStop(1, 'transparent');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
 
-    // Range rings
     for (let i = 1; i <= 3; i++) {
       const r = radius * (i / 3) * 1.3;
-      const alpha = 0.04 + Math.sin(t * 0.5 + i) * 0.02;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(57, 255, 20, ${alpha})`;
-      ctx.lineWidth = 0.5;
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(57,255,20,${0.04 + Math.sin(t * 0.5 + i) * 0.02})`;
+      ctx.lineWidth = 0.5; ctx.stroke();
     }
 
-    // Sweep line
-    const sweepAngle = (t * 0.3) % (Math.PI * 2);
-    const sweepGrad = ctx.createLinearGradient(
-      cx, cy,
-      cx + Math.cos(sweepAngle) * radius * 1.5,
-      cy + Math.sin(sweepAngle) * radius * 1.5,
-    );
-    sweepGrad.addColorStop(0, 'rgba(57, 255, 20, 0.08)');
-    sweepGrad.addColorStop(1, 'transparent');
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(
-      cx + Math.cos(sweepAngle) * radius * 1.5,
-      cy + Math.sin(sweepAngle) * radius * 1.5,
-    );
-    ctx.strokeStyle = sweepGrad;
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    const sa = (t * 0.3) % (Math.PI * 2);
+    const sg = ctx.createLinearGradient(cx, cy, cx + Math.cos(sa) * radius * 1.5, cy + Math.sin(sa) * radius * 1.5);
+    sg.addColorStop(0, 'rgba(57,255,20,0.08)'); sg.addColorStop(1, 'transparent');
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(sa) * radius * 1.5, cy + Math.sin(sa) * radius * 1.5);
+    ctx.strokeStyle = sg; ctx.lineWidth = 1; ctx.stroke();
 
     if (nodes.length === 0) {
-      ctx.fillStyle = connected ? 'rgba(102, 102, 102, 0.5)' : 'rgba(255, 59, 48, 0.6)';
-      ctx.font = '10px monospace';
-      ctx.textAlign = 'center';
+      ctx.fillStyle = connected ? 'rgba(102,102,102,0.5)' : 'rgba(255,59,48,0.6)';
+      ctx.font = '10px monospace'; ctx.textAlign = 'center';
       ctx.fillText(connected ? 'SCANNING MESH...' : 'RNS OFFLINE', cx, cy);
-      timeRef.current += 0.016;
-      frameRef.current = requestAnimationFrame(draw);
-      return;
+      timeRef.current += 0.016; frameRef.current = requestAnimationFrame(draw); return;
     }
 
     const positions = nodes.map((_, i) => getNodeScreenPos(i, nodes.length, cx, cy, radius));
 
-    // Connection lines
     for (let i = 0; i < positions.length; i++) {
       for (let j = i + 1; j < positions.length; j++) {
-        const a = positions[i];
-        const b = positions[j];
+        const a = positions[i], b = positions[j];
         const pulse = (Math.sin(t * 2 + i + j) + 1) / 2;
-        const alpha = 0.06 + pulse * 0.12;
-
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-
-        const midX = (a.x + b.x) / 2 + Math.sin(t + i * 3) * 8;
-        const midY = (a.y + b.y) / 2 + Math.cos(t + j * 3) * 8;
-        ctx.quadraticCurveTo(midX, midY, b.x, b.y);
-
-        ctx.strokeStyle = `rgba(57, 255, 20, ${alpha})`;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Spawn packet particles
-        if (Math.random() < 0.02) {
-          particlesRef.current.push({
-            x: a.x,
-            y: a.y,
-            vx: (b.x - a.x) * 0.02,
-            vy: (b.y - a.y) * 0.02,
-            life: 0,
-            maxLife: 50,
-            fromIdx: i,
-            toIdx: j,
-          });
-        }
+        ctx.beginPath(); ctx.moveTo(a.x, a.y);
+        ctx.quadraticCurveTo((a.x + b.x) / 2 + Math.sin(t + i * 3) * 8, (a.y + b.y) / 2 + Math.cos(t + j * 3) * 8, b.x, b.y);
+        ctx.strokeStyle = `rgba(57,255,20,${0.06 + pulse * 0.12})`; ctx.lineWidth = 1; ctx.stroke();
+        if (Math.random() < 0.02) particlesRef.current.push({ x: a.x, y: a.y, vx: (b.x - a.x) * 0.02, vy: (b.y - a.y) * 0.02, life: 0, maxLife: 50, fromIdx: i, toIdx: j });
       }
     }
 
-    // Update and draw particles
     const alive: Particle[] = [];
     for (const p of particlesRef.current) {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.life++;
+      p.x += p.vx; p.y += p.vy; p.life++;
       if (p.life < p.maxLife) {
         alive.push(p);
         const progress = p.life / p.maxLife;
         const alpha = progress < 0.2 ? progress * 5 : progress > 0.8 ? (1 - progress) * 5 : 1;
-        const size = 2 + Math.sin(progress * Math.PI) * 2;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, 212, 255, ${alpha * 0.6})`;
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, 2 + Math.sin(progress * Math.PI) * 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0,212,255,${alpha * 0.6})`; ctx.fill();
       }
     }
     particlesRef.current = alive;
 
-    // Draw nodes
     nodes.forEach((node, i) => {
       const pos = positions[i];
       const pulse = (Math.sin(t * 2.5 + i * 1.7) + 1) / 2;
       const age = Date.now() / 1000 - (node.lastUpdate || 0);
       const fresh = age < 120;
-
-      const color = node.id === 'pi-heltec'
-        ? { r: 57, g: 255, b: 20 }
-        : node.id === 'mac-heltec'
-          ? { r: 0, g: 212, b: 255 }
-          : { r: 255, g: 149, b: 0 };
-
-      // Outer glow
+      const color = node.id === 'pi-heltec' ? { r: 57, g: 255, b: 20 } : node.id === 'mac-heltec' ? { r: 0, g: 212, b: 255 } : { r: 255, g: 149, b: 0 };
       const glowR = 16 + pulse * 8;
-      const glowGrad = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, glowR);
-      glowGrad.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, ${fresh ? 0.3 : 0.1})`);
-      glowGrad.addColorStop(1, 'transparent');
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, glowR, 0, Math.PI * 2);
-      ctx.fillStyle = glowGrad;
-      ctx.fill();
-
-      // Core dot
-      const coreR = 4 + pulse * 2;
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, coreR, 0, Math.PI * 2);
-      ctx.fillStyle = fresh
-        ? `rgba(${color.r}, ${color.g}, ${color.b}, 0.9)`
-        : `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`;
-      ctx.fill();
-
-      // Crosshair
+      const gg = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, glowR);
+      gg.addColorStop(0, `rgba(${color.r},${color.g},${color.b},${fresh ? 0.3 : 0.1})`); gg.addColorStop(1, 'transparent');
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, glowR, 0, Math.PI * 2); ctx.fillStyle = gg; ctx.fill();
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, 4 + pulse * 2, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${color.r},${color.g},${color.b},${fresh ? 0.9 : 0.3})`; ctx.fill();
       const ch = 10 + pulse * 3;
-      ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.25)`;
-      ctx.lineWidth = 0.5;
-      ctx.beginPath();
-      ctx.moveTo(pos.x - ch, pos.y);
-      ctx.lineTo(pos.x + ch, pos.y);
-      ctx.moveTo(pos.x, pos.y - ch);
-      ctx.lineTo(pos.x, pos.y + ch);
-      ctx.stroke();
-
-      // Label
-      ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`;
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'center';
+      ctx.strokeStyle = `rgba(${color.r},${color.g},${color.b},0.25)`; ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(pos.x - ch, pos.y); ctx.lineTo(pos.x + ch, pos.y);
+      ctx.moveTo(pos.x, pos.y - ch); ctx.lineTo(pos.x, pos.y + ch); ctx.stroke();
+      ctx.fillStyle = `rgba(${color.r},${color.g},${color.b},0.8)`; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
       ctx.fillText(node.name.toUpperCase(), pos.x, pos.y - 20);
-
-      // Sub-label (host)
       const hostStr = node.host === 'raspberry-pi' ? 'RPi4' : node.host === 'macbook' ? 'MacBook' : node.host;
-      ctx.fillStyle = 'rgba(102, 102, 102, 0.6)';
-      ctx.font = '7px monospace';
+      ctx.fillStyle = 'rgba(102,102,102,0.6)'; ctx.font = '7px monospace';
       ctx.fillText(hostStr.toUpperCase(), pos.x, pos.y + 26);
-
-      // GPS coords
-      ctx.fillStyle = 'rgba(102, 102, 102, 0.4)';
-      ctx.font = '7px monospace';
+      ctx.fillStyle = 'rgba(102,102,102,0.4)';
       ctx.fillText(`${node.lat.toFixed(4)}, ${node.lng.toFixed(4)}`, pos.x, pos.y + 36);
     });
 
-    // Interface stats along the bottom
     if (interfaces.length > 0) {
-      const ifaceY = H - 12;
+      const iy = H - 12;
       interfaces.forEach((iface, i) => {
-        const statusColor = iface.status === 'Up' ? 'rgba(57, 255, 20, 0.6)' : 'rgba(255, 59, 48, 0.6)';
-        const x = 10 + i * (W / interfaces.length);
-        ctx.fillStyle = statusColor;
-        ctx.font = '8px monospace';
-        ctx.textAlign = 'left';
-        const label = `${iface.name}: ${iface.status || '?'}${iface.peers != null ? ` [${iface.peers}P]` : ''}`;
-        ctx.fillText(label, x, ifaceY);
+        ctx.fillStyle = iface.status === 'Up' ? 'rgba(57,255,20,0.6)' : 'rgba(255,59,48,0.6)';
+        ctx.font = '8px monospace'; ctx.textAlign = 'left';
+        ctx.fillText(`${iface.name}: ${iface.status || '?'}${iface.peers != null ? ` [${iface.peers}P]` : ''}`, 10 + i * (W / interfaces.length), iy);
       });
     }
 
-    timeRef.current += 0.016;
-    frameRef.current = requestAnimationFrame(draw);
+    timeRef.current += 0.016; frameRef.current = requestAnimationFrame(draw);
   }, [nodes, interfaces, connected]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    const ctx = canvas.getContext('2d');
-    if (ctx) ctx.scale(dpr, dpr);
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      sizeRef.current = { w: rect.width, h: rect.height };
+      canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+    return () => ro.disconnect();
   }, []);
 
   useEffect(() => {
@@ -260,37 +161,24 @@ function NetworkCanvas({
     return () => cancelAnimationFrame(frameRef.current);
   }, [draw]);
 
-  const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!onNodeClick || nodes.length === 0) return;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const cx = rect.width / 2;
-      const cy = rect.height / 2;
-      const radius = Math.min(rect.width, rect.height) * 0.32;
-
-      nodes.forEach((node, i) => {
-        const pos = getNodeScreenPos(i, nodes.length, cx, cy, radius);
-        const dx = mx - pos.x;
-        const dy = my - pos.y;
-        if (dx * dx + dy * dy < 400) {
-          onNodeClick(node);
-        }
-      });
-    },
-    [nodes, onNodeClick],
-  );
+  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!onNodeClick || nodes.length === 0) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const ccx = rect.width / 2, ccy = rect.height / 2;
+    const r = Math.min(rect.width, rect.height) * 0.32;
+    nodes.forEach((node, i) => {
+      const pos = getNodeScreenPos(i, nodes.length, ccx, ccy, r);
+      if ((mx - pos.x) ** 2 + (my - pos.y) ** 2 < 400) onNodeClick(node);
+    });
+  }, [nodes, onNodeClick]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      onClick={handleClick}
-      className="w-full cursor-crosshair"
-      style={{ height: 200, imageRendering: 'auto' }}
-    />
+    <canvas ref={canvasRef} onClick={handleClick}
+      className={fillHeight ? 'w-full h-full cursor-crosshair' : 'w-full cursor-crosshair'}
+      style={fillHeight ? { imageRendering: 'auto' } : { height: 200, imageRendering: 'auto' }} />
   );
 }
 
@@ -300,6 +188,7 @@ export default function ReticulumPanel({
   connected,
   isMobile,
   onNodeClick,
+  inColumn,
 }: ReticulumPanelProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -307,12 +196,15 @@ export default function ReticulumPanel({
 
   const panelContent = (
     <>
-      <NetworkCanvas
-        nodes={nodes}
-        interfaces={interfaces}
-        connected={connected}
-        onNodeClick={onNodeClick}
-      />
+      <div className={inColumn ? 'flex-1 min-h-0' : ''}>
+        <NetworkCanvas
+          nodes={nodes}
+          interfaces={interfaces}
+          connected={connected}
+          onNodeClick={onNodeClick}
+          fillHeight={!!inColumn}
+        />
+      </div>
 
       <div className="px-3 py-2 border-t border-wv-border">
         <div className="flex items-center justify-between text-[9px]">
@@ -421,7 +313,11 @@ export default function ReticulumPanel({
   }
 
   return (
-    <div className="fixed bottom-12 right-4 w-72 panel-glass rounded-lg overflow-hidden z-40 select-none">
+    <div className={
+      inColumn
+        ? 'w-full flex-1 min-h-0 panel-glass rounded-lg overflow-hidden select-none pointer-events-auto flex flex-col'
+        : 'fixed bottom-12 right-4 w-72 panel-glass rounded-lg overflow-hidden z-40 select-none'
+    }>
       <div className="px-3 py-2 border-b border-wv-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${connected ? 'bg-wv-green animate-pulse' : 'bg-wv-red'}`} />

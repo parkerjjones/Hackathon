@@ -11,7 +11,7 @@ import json
 import sys
 import os
 
-PI_ADDR = "f62eb9ec6a628e073f2fede1dfe3cb35"
+PI_ADDR = "1cf245565cb9e859fdce270c6b0880c3"
 GPS_FILE = "/tmp/gps.json"
 BEACON_INTERVAL = 30
 

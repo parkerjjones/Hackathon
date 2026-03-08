@@ -8,6 +8,7 @@ interface MessageLogProps {
   isMobile?: boolean;
   onSend?: (target: SendTarget, body: string) => Promise<{ ok: boolean; error?: string }>;
   sending?: boolean;
+  inColumn?: boolean;
 }
 
 function formatSource(src: string): string {
@@ -134,7 +135,7 @@ function ComposeBar({
   );
 }
 
-export default function MessageLog({ messages, connected, isMobile = false, onSend, sending }: MessageLogProps) {
+export default function MessageLog({ messages, connected, isMobile = false, onSend, sending, inColumn }: MessageLogProps) {
   const [visible, setVisible] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -233,7 +234,11 @@ export default function MessageLog({ messages, connected, isMobile = false, onSe
   }
 
   return (
-    <div className="fixed top-4 right-4 w-72 panel-glass rounded-lg overflow-hidden z-40 select-none">
+    <div className={
+      inColumn
+        ? 'w-full panel-glass rounded-lg overflow-hidden select-none pointer-events-auto'
+        : 'fixed top-4 right-4 w-72 panel-glass rounded-lg overflow-hidden z-40 select-none'
+    }>
       <div
         className="px-3 py-2 border-b border-wv-border flex items-center justify-between cursor-pointer"
         onClick={() => setVisible(!visible)}
