@@ -87,8 +87,16 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
   }, [ready, onComplete]);
 
   return (
-    <div className="fixed inset-0 bg-wv-black z-[100] flex items-center justify-center">
-      <div className="w-full max-w-xl p-8">
+    <div className="fixed inset-0 bg-wv-black z-[100] flex items-center justify-center overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+        <img
+          src="/ski-watermark.svg"
+          alt=""
+          aria-hidden="true"
+          className="w-[340px] max-w-[50vw] min-w-[220px] opacity-[0.12] select-none"
+        />
+      </div>
+      <div className="w-full max-w-xl p-8 relative z-10">
         {/* Fully revealed lines */}
         {BOOT_LINES.slice(0, visibleLines).map((line, i) => (
           <div

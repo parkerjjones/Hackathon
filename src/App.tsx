@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { Viewer as CesiumViewer, Cartesian3, Math as CesiumMath } from 'cesium';
+import { Viewer as CesiumViewer, Cartesian3, ConstantProperty, Math as CesiumMath } from 'cesium';
 import GlobeViewer from './components/globe/GlobeViewer';
 import EarthquakeLayer from './components/layers/EarthquakeLayer';
 import FlightLayer from './components/layers/FlightLayer';
@@ -254,7 +254,7 @@ function App() {
     const entity = viewer.entities.getById(id);
     if (!entity) return;
 
-    entity.viewFrom = new Cartesian3(0, -3_500, 5_000) as any;
+    entity.viewFrom = new ConstantProperty(new Cartesian3(0, -3_500, 5_000));
     viewer.trackedEntity = entity;
     const description = typeof entity.description?.getValue(viewer.clock.currentTime) === 'string'
       ? entity.description.getValue(viewer.clock.currentTime)
