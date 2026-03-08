@@ -44,7 +44,12 @@ export function useEarthquakes(enabled: boolean) {
         id: `eq-${q.id}`,
         time: new Date(q.time).toISOString().slice(11, 19),
         type: 'seismic' as const,
-        message: `M${q.mag.toFixed(1)} — ${q.place}`,
+        message: `M${q.mag.toFixed(1)} -`,
+        location: {
+          label: q.place,
+          latitude: q.latitude,
+          longitude: q.longitude,
+        },
       }));
       setFeedItems(newFeed);
     } catch (err) {

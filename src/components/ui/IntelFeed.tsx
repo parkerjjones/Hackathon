@@ -1,11 +1,18 @@
 import { useState } from 'react';
 import MobileModal from './MobileModal';
 
+interface IntelFeedLocation {
+  label: string;
+  latitude: number;
+  longitude: number;
+}
+
 interface IntelFeedItem {
   id: string;
   time: string;
   type: 'flight' | 'seismic' | 'satellite' | 'system' | 'cctv' | 'ship';
   message: string;
+  location?: IntelFeedLocation;
 }
 
 const TYPE_STYLES: Record<string, string> = {
@@ -29,9 +36,10 @@ const TYPE_LABELS: Record<string, string> = {
 interface IntelFeedProps {
   items: IntelFeedItem[];
   isMobile?: boolean;
+  onLocationClick?: (location: IntelFeedLocation) => void;
 }
 
-export default function IntelFeed({ items, isMobile = false }: IntelFeedProps) {
+export default function IntelFeed({ items, isMobile = false, onLocationClick }: IntelFeedProps) {
   const [visible, setVisible] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -70,15 +78,33 @@ export default function IntelFeed({ items, isMobile = false }: IntelFeedProps) {
 
   const feedList = (
     <div className={isMobile ? 'p-3' : 'max-h-64 overflow-y-auto p-2'}>
-      {allItems.map((item) => (
-        <div key={item.id} className={`flex gap-2 py-0.5 text-[9px] leading-tight ${isMobile ? 'py-1.5 text-[11px]' : ''}`}>
-          <span className="text-wv-muted shrink-0">{item.time}</span>
-          <span className={`shrink-0 font-bold ${TYPE_STYLES[item.type]}`}>
-            [{TYPE_LABELS[item.type]}]
-          </span>
-          <span className="text-wv-text/80">{item.message}</span>
-        </div>
-      ))}
+      {allItems.map((item) => {
+        const location = item.location;
+        return (
+          <div key={item.id} className={`flex gap-2 py-0.5 text-[9px] leading-tight ${isMobile ? 'py-1.5 text-[11px]' : ''}`}>
+            <span className="text-wv-muted shrink-0">{item.time}</span>
+            <span className={`shrink-0 font-bold ${TYPE_STYLES[item.type]}`}>
+              [{TYPE_LABELS[item.type]}]
+            </span>
+            <span className="text-wv-text/80">
+              {item.message}
+              {location && (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    className="bg-transparent border-0 p-0 text-inherit underline decoration-dotted underline-offset-2 hover:text-wv-cyan transition-colors cursor-pointer"
+                    onClick={() => onLocationClick?.(location)}
+                    title={`Jump to ${location.label}`}
+                  >
+                    {location.label}
+                  </button>
+                </>
+              )}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 
@@ -134,4 +160,4 @@ export default function IntelFeed({ items, isMobile = false }: IntelFeedProps) {
   );
 }
 
-export type { IntelFeedItem };
+export type { IntelFeedItem, IntelFeedLocation };

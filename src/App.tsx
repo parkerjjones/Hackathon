@@ -23,7 +23,7 @@ import { useGeolocation } from './hooks/useGeolocation';
 import { useIsMobile } from './hooks/useIsMobile';
 import { useAudio } from './hooks/useAudio';
 import type { ShaderMode } from './shaders/postprocess';
-import type { IntelFeedItem } from './components/ui/IntelFeed';
+import type { IntelFeedItem, IntelFeedLocation } from './components/ui/IntelFeed';
 import type { TrackedEntityInfo } from './components/globe/EntityClickHandler';
 import { SKI_PATROL_IDS, type SkiPatrolId } from './constants/skiPatrol';
 
@@ -218,6 +218,25 @@ function App() {
   // Combine intel feed items
   const allFeedItems: IntelFeedItem[] = [...fltFeedItems, ...eqFeedItems];
 
+  const handleIntelFeedLocationClick = useCallback((location: IntelFeedLocation) => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+
+    audio.play('click');
+    viewer.trackedEntity = undefined;
+    setTrackedEntity(null);
+    setSelectedSkiPatrolId(null);
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(location.longitude, location.latitude, 1_500_000),
+      orientation: {
+        heading: CesiumMath.toRadians(0),
+        pitch: CesiumMath.toRadians(-90),
+        roll: 0,
+      },
+      duration: 2,
+    });
+  }, [audio]);
+
   // Handlers
   const handleCameraChange = useCallback(
     (lat: number, lon: number, alt: number, heading: number, pitch: number) => {
@@ -344,7 +363,11 @@ function App() {
         geoStatus={geoStatus}
         isMobile={isMobile}
       />
-      <IntelFeed items={allFeedItems} isMobile={isMobile} />
+      <IntelFeed
+        items={allFeedItems}
+        isMobile={isMobile}
+        onLocationClick={handleIntelFeedLocationClick}
+      />
       <StatusBar
         camera={camera}
         shaderMode={shaderMode}
