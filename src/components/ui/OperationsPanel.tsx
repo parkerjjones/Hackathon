@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { ShaderMode } from '../../shaders/postprocess';
 import type { AltitudeBand } from '../layers/FlightLayer';
-import type { SatelliteCategory } from '../layers/SatelliteLayer';
 import type { GeoStatus } from '../../hooks/useGeolocation';
 import MobileModal from './MobileModal';
 
@@ -9,23 +8,18 @@ interface OperationsPanelProps {
   shaderMode: ShaderMode;
   onShaderChange: (mode: ShaderMode) => void;
   layers: {
-    satellites: boolean;
     earthquakes: boolean;
     // other layers are managed elsewhere but not toggled here
   };
-  onLayerToggle: (layer: 'satellites' | 'earthquakes') => void;
+  onLayerToggle: (layer: 'earthquakes') => void;
   /** Optional per-layer loading state (e.g. ships takes ~20s on first fetch) */
-  layerLoading?: Partial<Record<'satellites' | 'earthquakes', boolean>>;
+  layerLoading?: Partial<Record<'earthquakes', boolean>>;
   mapTiles: 'google' | 'osm';
   onMapTilesChange: (tile: 'google' | 'osm') => void;
   showPaths: boolean;
   onShowPathsToggle: () => void;
   altitudeFilter: Record<AltitudeBand, boolean>;
   onAltitudeToggle: (band: AltitudeBand) => void;
-  showSatPaths: boolean;
-  onShowSatPathsToggle: () => void;
-  satCategoryFilter: Record<SatelliteCategory, boolean>;
-  onSatCategoryToggle: (category: SatelliteCategory) => void;
   onResetView: () => void;
   onGoToSteamboat: () => void;
   onLocateMe: () => void;
@@ -40,15 +34,8 @@ const SHADER_OPTIONS: { value: ShaderMode; label: string; colour: string }[] = [
   { value: 'flir', label: 'FLIR', colour: 'text-wv-amber' },
 ];
 
-const LAYER_OPTIONS: { key: 'satellites' | 'earthquakes'; label: string; icon: string }[] = [
-  { key: 'satellites', label: 'SATELLITES', icon: '🛰' },
+const LAYER_OPTIONS: { key: 'earthquakes'; label: string; icon: string }[] = [
   { key: 'earthquakes', label: 'SEISMIC', icon: '🌍' },
-];
-
-
-const SATELLITE_CATEGORIES: { category: SatelliteCategory; label: string; colour: string; dotColour: string; icon: string }[] = [
-  { category: 'iss', label: 'ISS', colour: 'text-[#00D4FF]', dotColour: 'bg-[#00D4FF]', icon: '🚀' },
-  { category: 'other', label: 'OTHER', colour: 'text-[#39FF14]', dotColour: 'bg-[#39FF14]', icon: '🛰' },
 ];
 
 export default function OperationsPanel({
@@ -59,10 +46,6 @@ export default function OperationsPanel({
   onLayerToggle,
   mapTiles,
   onMapTilesChange,
-  showSatPaths,
-  onShowSatPathsToggle,
-  satCategoryFilter,
-  onSatCategoryToggle,
   onResetView,
   onGoToSteamboat,
   onLocateMe,
@@ -164,52 +147,6 @@ export default function OperationsPanel({
           })}
         </div>
       </div>
-
-
-
-      {/* Satellite Filters Section */}
-      {layers.satellites && (
-        <div className="p-3 border-t border-wv-border">
-          <div className="text-[9px] text-wv-muted tracking-widest uppercase mb-2">Satellite Filters</div>
-          <button
-            onClick={onShowSatPathsToggle}
-            className={`
-              flex items-center gap-2 px-2 py-1.5 rounded text-[10px] w-full
-              transition-all duration-200 text-left mb-1
-              ${isMobile ? 'min-h-[44px]' : ''}
-              ${showSatPaths
-                ? 'text-wv-green bg-wv-green/10'
-                : 'text-wv-muted hover:text-wv-text hover:bg-white/5'
-              }
-            `}
-          >
-            <span className="text-sm">⟿</span>
-            <span className="tracking-wider">ORBIT PATHS</span>
-            <span className={`ml-auto w-1.5 h-1.5 rounded-full ${showSatPaths ? 'bg-wv-green' : 'bg-wv-muted/30'}`} />
-          </button>
-          <div className="text-[8px] text-wv-muted tracking-widest uppercase mt-2 mb-1 px-1">Categories</div>
-          <div className="flex flex-col gap-0.5">
-            {SATELLITE_CATEGORIES.map(({ category, label, colour, dotColour }) => (
-              <button
-                key={category}
-                onClick={() => onSatCategoryToggle(category)}
-                className={`
-                  flex items-center gap-2 px-2 py-1 rounded text-[9px]
-                  transition-all duration-200 text-left
-                  ${isMobile ? 'min-h-[40px]' : ''}
-                  ${satCategoryFilter[category]
-                    ? `${colour} bg-white/5`
-                    : 'text-wv-muted/40 hover:text-wv-muted hover:bg-white/5 line-through'
-                  }
-                `}
-              >
-                <span className={`w-2 h-2 rounded-full ${satCategoryFilter[category] ? dotColour : 'bg-wv-muted/20'}`} />
-                <span className="tracking-wider">{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Locate Me + Reset View */}
       <div className="p-3 border-t border-wv-border flex flex-col gap-1">

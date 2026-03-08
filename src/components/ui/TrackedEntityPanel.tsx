@@ -12,6 +12,7 @@ const TYPE_ICONS: Record<TrackedEntityInfo['entityType'], string> = {
   aircraft: '✈',
   ship: '🚢',
   earthquake: '🌍',
+  steamboat: '⛷',
   unknown: '📍',
 };
 
@@ -20,6 +21,7 @@ const TYPE_LABELS: Record<TrackedEntityInfo['entityType'], string> = {
   aircraft: 'AIRCRAFT',
   ship: 'VESSEL',
   earthquake: 'SEISMIC EVENT',
+  steamboat: 'SKI PATROL',
   unknown: 'TARGET',
 };
 
@@ -28,6 +30,7 @@ const TYPE_COLORS: Record<TrackedEntityInfo['entityType'], string> = {
   aircraft: 'text-wv-cyan',
   ship: 'text-wv-cyan',
   earthquake: 'text-wv-amber',
+  steamboat: 'text-wv-cyan',
   unknown: 'text-wv-muted',
 };
 
@@ -114,7 +117,6 @@ export default function TrackedEntityPanel({ trackedEntity, onUnlock, isMobile =
   }
 
   /* ── Desktop: centred bottom panel (unchanged) ── */
-
   return (
     <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 pointer-events-auto">
       <div className="panel-glass rounded border border-wv-cyan/30 px-4 py-3 min-w-[320px] max-w-[480px]">
@@ -184,3 +186,4 @@ export default function TrackedEntityPanel({ trackedEntity, onUnlock, isMobile =
     </div>
   );
 }
+

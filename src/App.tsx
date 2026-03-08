@@ -2,22 +2,20 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Viewer as CesiumViewer, Cartesian3, Math as CesiumMath } from 'cesium';
 import GlobeViewer from './components/globe/GlobeViewer';
 import EarthquakeLayer from './components/layers/EarthquakeLayer';
-import SatelliteLayer from './components/layers/SatelliteLayer';
 import FlightLayer from './components/layers/FlightLayer';
 import TrafficLayer from './components/layers/TrafficLayer';
 import SteamboatDotsLayer from './components/layers/SteamboatDotsLayer';
 import type { AltitudeBand } from './components/layers/FlightLayer';
-import type { SatelliteCategory } from './components/layers/SatelliteLayer';
 import OperationsPanel from './components/ui/OperationsPanel';
 import StatusBar from './components/ui/StatusBar';
 import IntelFeed from './components/ui/IntelFeed';
 import AudioToggle from './components/ui/AudioToggle';
 import Crosshair from './components/ui/Crosshair';
 import TrackedEntityPanel from './components/ui/TrackedEntityPanel';
+import SkiPatrolMenu from './components/ui/SkiPatrolMenu';
 import SplashScreen from './components/ui/SplashScreen';
 import FilmGrain from './components/ui/FilmGrain';
 import { useEarthquakes } from './hooks/useEarthquakes';
-import { useSatellites } from './hooks/useSatellites';
 import { useFlights } from './hooks/useFlights';
 import { useFlightsLive } from './hooks/useFlightsLive';
 import { useTraffic } from './hooks/useTraffic';
@@ -27,6 +25,7 @@ import { useAudio } from './hooks/useAudio';
 import type { ShaderMode } from './shaders/postprocess';
 import type { IntelFeedItem } from './components/ui/IntelFeed';
 import type { TrackedEntityInfo } from './components/globe/EntityClickHandler';
+import { SKI_PATROL_IDS, type SkiPatrolId } from './constants/skiPatrol';
 
 const DEFAULT_ALTITUDE_FILTER: Record<AltitudeBand, boolean> = {
   cruise: false,
@@ -34,11 +33,6 @@ const DEFAULT_ALTITUDE_FILTER: Record<AltitudeBand, boolean> = {
   mid: true,
   low: true,
   ground: true,
-};
-
-const DEFAULT_SATELLITE_FILTER: Record<SatelliteCategory, boolean> = {
-  iss: true,
-  other: true,
 };
 
 function App() {
@@ -63,7 +57,6 @@ function App() {
   // State: data layer visibility
   const [layers, setLayers] = useState({
     flights: false,        // not shown in UI
-    satellites: true,
     earthquakes: true,
     traffic: false,        
     ships: false,
@@ -72,10 +65,6 @@ function App() {
   // State: flight sub-toggles
   const [showPaths, setShowPaths] = useState(false);
   const [altitudeFilter, setAltitudeFilter] = useState<Record<AltitudeBand, boolean>>(DEFAULT_ALTITUDE_FILTER);
-
-  // State: satellite sub-toggles
-  const [showSatPaths, setShowSatPaths] = useState(false);
-  const [satCategoryFilter, setSatCategoryFilter] = useState<Record<SatelliteCategory, boolean>>(DEFAULT_SATELLITE_FILTER);
 
   // State: camera position
   const [camera, setCamera] = useState({
@@ -88,9 +77,19 @@ function App() {
 
   // State: tracked entity (lock view)
   const [trackedEntity, setTrackedEntity] = useState<TrackedEntityInfo | null>(null);
+  const [selectedSkiPatrolId, setSelectedSkiPatrolId] = useState<SkiPatrolId | null>(null);
 
   const handleTrackEntity = useCallback((info: TrackedEntityInfo | null) => {
     setTrackedEntity(info);
+    if (
+      info?.entityType === 'steamboat'
+      && info.id
+      && SKI_PATROL_IDS.includes(info.id as SkiPatrolId)
+    ) {
+      setSelectedSkiPatrolId(info.id as SkiPatrolId);
+    } else {
+      setSelectedSkiPatrolId(null);
+    }
   }, []);
 
   const handleViewerReady = useCallback((viewer: CesiumViewer) => {
@@ -102,6 +101,7 @@ function App() {
     if (!viewer || viewer.isDestroyed()) return;
     viewer.trackedEntity = undefined;
     setTrackedEntity(null);
+    setSelectedSkiPatrolId(null);
     viewer.camera.flyTo({
       destination: Cartesian3.fromDegrees(151.2093, -33.8688, 20_000_000),
       orientation: {
@@ -118,6 +118,7 @@ function App() {
     if (!viewer || viewer.isDestroyed()) return;
     viewer.trackedEntity = undefined;
     setTrackedEntity(null);
+    setSelectedSkiPatrolId(null);
     viewer.camera.flyTo({
       destination: Cartesian3.fromDegrees(-106.8317, 40.4844, 120_000),
       orientation: {
@@ -131,7 +132,6 @@ function App() {
 
   // Data hooks
   const { earthquakes, feedItems: eqFeedItems } = useEarthquakes(layers.earthquakes);
-  const { satellites, feedItems: satFeedItems } = useSatellites(layers.satellites);
   const { flights: flightsGlobal, feedItems: fltFeedItems } = useFlights(layers.flights);
   const { flightsLive } = useFlightsLive(
     layers.flights,
@@ -161,7 +161,6 @@ function App() {
     const flyAltitude = geoLocation.source === 'gps' ? 5_000 : 200_000;
 
     viewer.trackedEntity = undefined;
-    setTrackedEntity(null);
     viewer.camera.flyTo({
       destination: Cartesian3.fromDegrees(
         geoLocation.longitude,
@@ -217,7 +216,7 @@ function App() {
   }, [flightsGlobal, flightsLive]);
 
   // Combine intel feed items
-  const allFeedItems: IntelFeedItem[] = [...fltFeedItems, ...satFeedItems, ...eqFeedItems];
+  const allFeedItems: IntelFeedItem[] = [...fltFeedItems, ...eqFeedItems];
 
   // Handlers
   const handleCameraChange = useCallback(
@@ -227,7 +226,7 @@ function App() {
     []
   );
 
-  const handleLayerToggle = useCallback((layer: 'satellites' | 'earthquakes') => {
+  const handleLayerToggle = useCallback((layer: 'earthquakes') => {
     setLayers((prev) => {
       const next = !prev[layer as keyof typeof prev];
       audio.play(next ? 'toggleOn' : 'toggleOff');
@@ -240,16 +239,37 @@ function App() {
     setAltitudeFilter((prev) => ({ ...prev, [band]: !prev[band] }));
   }, [audio]);
 
-  const handleSatCategoryToggle = useCallback((category: SatelliteCategory) => {
-    audio.play('click');
-    setSatCategoryFilter((prev) => ({ ...prev, [category]: !prev[category] }));
-  }, [audio]);
+  const handleLocateMe = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+    viewer.trackedEntity = undefined;
+    setTrackedEntity(null);
+    setSelectedSkiPatrolId(null);
+    geoLocate();
+  }, [geoLocate]);
 
-  // Stable altitude filter ref to avoid unnecessary re-renders
-  const stableAltitudeFilter = useMemo(() => altitudeFilter, [
-    altitudeFilter.cruise, altitudeFilter.high, altitudeFilter.mid,
-    altitudeFilter.low, altitudeFilter.ground,
-  ]);
+  const handleSelectSkiPatrol = useCallback((id: SkiPatrolId) => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+    const entity = viewer.entities.getById(id);
+    if (!entity) return;
+
+    entity.viewFrom = new Cartesian3(0, -3_500, 5_000) as any;
+    viewer.trackedEntity = entity;
+    const description = typeof entity.description?.getValue(viewer.clock.currentTime) === 'string'
+      ? entity.description.getValue(viewer.clock.currentTime)
+      : '';
+
+    setTrackedEntity({
+      id,
+      name: entity.name || `Steamboat Patrol ${id}`,
+      entityType: 'steamboat',
+      description,
+    });
+    setSelectedSkiPatrolId(id);
+  }, []);
+
+  const stableAltitudeFilter = useMemo(() => altitudeFilter, [altitudeFilter]);
 
   // Boot complete callback — starts ambient drone
   const handleBootComplete = useCallback(() => {
@@ -276,7 +296,6 @@ function App() {
         onViewerReady={handleViewerReady}
       >
         <EarthquakeLayer earthquakes={earthquakes} visible={layers.earthquakes} isTracking={!!trackedEntity} />
-        <SatelliteLayer satellites={satellites} visible={layers.satellites} showPaths={showSatPaths} categoryFilter={satCategoryFilter} isTracking={!!trackedEntity} />
         <FlightLayer
           flights={flights}
           visible={layers.flights}
@@ -292,12 +311,21 @@ function App() {
           showVehicles={true}
           congestionMode={false}
         />
-        <SteamboatDotsLayer />
+        <SteamboatDotsLayer selectedId={selectedSkiPatrolId} />
       </GlobeViewer>
 
       {/* Tactical UI Overlay */}
       <Crosshair />
       <TrackedEntityPanel trackedEntity={trackedEntity} isMobile={isMobile} />
+      <SkiPatrolMenu
+        visible={trackedEntity?.entityType === 'steamboat'}
+        selectedId={selectedSkiPatrolId}
+        onSelect={(id) => {
+          audio.play('click');
+          handleSelectSkiPatrol(id);
+        }}
+        isMobile={isMobile}
+      />
       <OperationsPanel
         shaderMode={shaderMode}
         onShaderChange={(mode) => { audio.play('shaderSwitch'); setShaderMode(mode); }}
@@ -310,13 +338,9 @@ function App() {
         onShowPathsToggle={() => { audio.play('click'); setShowPaths((p) => !p); }}
         altitudeFilter={altitudeFilter}
         onAltitudeToggle={handleAltitudeToggle}
-        showSatPaths={showSatPaths}
-        onShowSatPathsToggle={() => { audio.play('click'); setShowSatPaths((p) => !p); }}
-        satCategoryFilter={satCategoryFilter}
-        onSatCategoryToggle={handleSatCategoryToggle}
         onResetView={() => { audio.play('click'); handleResetView(); }}
         onGoToSteamboat={() => { audio.play('click'); handleGoToSteamboat(); }}
-        onLocateMe={() => { audio.play('click'); geoLocate(); }}
+        onLocateMe={() => { audio.play('click'); handleLocateMe(); }}
         geoStatus={geoStatus}
         isMobile={isMobile}
       />
@@ -326,7 +350,6 @@ function App() {
         shaderMode={shaderMode}
         isMobile={isMobile}
         dataStatus={{
-          satellites: satellites.length,
           earthquakes: earthquakes.length,
         }}
       />

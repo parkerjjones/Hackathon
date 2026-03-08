@@ -12,7 +12,6 @@ interface StatusBarProps {
   camera: CameraState;
   shaderMode: string;
   dataStatus: {
-    satellites: number;
     earthquakes: number;
   };
   isMobile?: boolean;
@@ -89,9 +88,6 @@ export default function StatusBar({ camera, shaderMode, dataStatus, isMobile = f
 
       {/* Right: Data feeds + shader */}
       <div className="flex gap-4">
-        <span>
-          SATS <span className={dataStatus.satellites > 0 ? 'text-wv-green' : 'text-wv-muted'}>{dataStatus.satellites}</span>
-        </span>
         <span>
           SEIS <span className={dataStatus.earthquakes > 0 ? 'text-wv-amber' : 'text-wv-muted'}>{dataStatus.earthquakes}</span>
         </span>

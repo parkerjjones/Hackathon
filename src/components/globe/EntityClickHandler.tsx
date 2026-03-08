@@ -24,8 +24,9 @@ function isHelperEntity(name: string | undefined): boolean {
 }
 
 export interface TrackedEntityInfo {
+  id?: string;
   name: string;
-  entityType: 'satellite' | 'aircraft' | 'ship' | 'earthquake' | 'unknown';
+  entityType: 'satellite' | 'aircraft' | 'ship' | 'earthquake' | 'steamboat' | 'unknown';
   description: string;
 }
 
@@ -104,7 +105,9 @@ export default function EntityClickHandler({ onTrackEntity }: EntityClickHandler
 
       // --- Determine entity type from description/properties ---
       const entityType = classifyEntity(entity);
+      const entityId = typeof entity.id === 'string' ? entity.id : undefined;
       const info: TrackedEntityInfo = {
+        id: entityId,
         name: entity.name || 'Unknown',
         entityType,
         description: typeof entity.description?.getValue(viewer.clock.currentTime) === 'string'
@@ -119,7 +122,9 @@ export default function EntityClickHandler({ onTrackEntity }: EntityClickHandler
           ? new Cartesian3(0, -30_000, 30_000)     // ~42 km for aircraft
           : entityType === 'ship'
             ? new Cartesian3(0, -1_200, 2_100)     // ~2.4 km offset for ships (close overhead)
-            : new Cartesian3(0, -200_000, 200_000);  // ~280 km for earthquakes/other
+            : entityType === 'steamboat'
+              ? new Cartesian3(0, -3_500, 5_000)   // keep camera above mountain terrain
+              : new Cartesian3(0, -200_000, 200_000);  // ~280 km for earthquakes/other
 
       entity.viewFrom = offset as any;
 
@@ -166,6 +171,9 @@ function classifyEntity(entity: CesiumEntity): TrackedEntityInfo['entityType'] {
   }
   if (desc.includes('magnitude') || desc.includes('depth')) {
     return 'earthquake';
+  }
+  if (name.includes('steamboat') || desc.includes('patrol id')) {
+    return 'steamboat';
   }
   return 'unknown';
 }
