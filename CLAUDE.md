@@ -1,6 +1,7 @@
 # CLAUDE.md — WorldView Project Guide
 
 ## Project Overview
+hello
 
 WorldView is a real-time tactical intelligence dashboard built on a 3D CesiumJS globe. It overlays live data feeds — flights, satellites, earthquakes, traffic, and CCTV cameras — onto an interactive Earth visualisation with a military/tactical UI aesthetic.
 
