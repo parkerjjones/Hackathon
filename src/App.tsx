@@ -5,16 +5,18 @@ import EarthquakeLayer from './components/layers/EarthquakeLayer';
 import FlightLayer from './components/layers/FlightLayer';
 import TrafficLayer from './components/layers/TrafficLayer';
 import SteamboatDotsLayer from './components/layers/SteamboatDotsLayer';
+import ReticulumLayer from './components/layers/ReticulumLayer';
 import type { AltitudeBand } from './components/layers/FlightLayer';
 import OperationsPanel from './components/ui/OperationsPanel';
 import StatusBar from './components/ui/StatusBar';
-import IntelFeed from './components/ui/IntelFeed';
+import MessageLog from './components/ui/MessageLog';
 import AudioToggle from './components/ui/AudioToggle';
 import Crosshair from './components/ui/Crosshair';
 import TrackedEntityPanel from './components/ui/TrackedEntityPanel';
 import SkiPatrolMenu from './components/ui/SkiPatrolMenu';
 import SplashScreen from './components/ui/SplashScreen';
 import FilmGrain from './components/ui/FilmGrain';
+import ReticulumPanel from './components/ui/ReticulumPanel';
 import { useEarthquakes } from './hooks/useEarthquakes';
 import { useFlights } from './hooks/useFlights';
 import { useFlightsLive } from './hooks/useFlightsLive';
@@ -22,8 +24,8 @@ import { useTraffic } from './hooks/useTraffic';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useIsMobile } from './hooks/useIsMobile';
 import { useAudio } from './hooks/useAudio';
+import { useReticulum } from './hooks/useReticulum';
 import type { ShaderMode } from './shaders/postprocess';
-import type { IntelFeedItem, IntelFeedLocation } from './components/ui/IntelFeed';
 import type { TrackedEntityInfo } from './components/globe/EntityClickHandler';
 import { SKI_PATROL_IDS, type SkiPatrolId } from './constants/skiPatrol';
 
@@ -36,36 +38,23 @@ const DEFAULT_ALTITUDE_FILTER: Record<AltitudeBand, boolean> = {
 };
 
 function App() {
-  // Responsive breakpoint
   const isMobile = useIsMobile();
-
-  // Audio engine
   const audio = useAudio();
-
-  // Viewer ref for reset-view functionality
   const viewerRef = useRef<CesiumViewer | null>(null);
 
-  // Boot sequence
   const [booted, setBooted] = useState(false);
-
-  // State: shader mode
   const [shaderMode, setShaderMode] = useState<ShaderMode>('crt');
-
-  // State: map tiles (google 3D vs OSM for testing)
   const [mapTiles, setMapTiles] = useState<'google' | 'osm'>('google');
 
-  // State: data layer visibility
-  const [layers, setLayers] = useState({
-    flights: false,        // not shown in UI
+  const [layers] = useState({
+    flights: false,
     earthquakes: true,
-    traffic: false,        
+    traffic: false,
   });
 
-  // State: flight sub-toggles
   const [showPaths] = useState(false);
   const [altitudeFilter] = useState<Record<AltitudeBand, boolean>>(DEFAULT_ALTITUDE_FILTER);
 
-  // State: camera position
   const [camera, setCamera] = useState({
     latitude: -33.8688,
     longitude: 151.2093,
@@ -74,7 +63,6 @@ function App() {
     pitch: -45,
   });
 
-  // State: tracked entity (lock view)
   const [trackedEntity, setTrackedEntity] = useState<TrackedEntityInfo | null>(null);
   const [selectedSkiPatrolId, setSelectedSkiPatrolId] = useState<SkiPatrolId | null>(null);
 
@@ -112,26 +100,9 @@ function App() {
     });
   }, []);
 
-  const handleGoToSteamboat = useCallback(() => {
-    const viewer = viewerRef.current;
-    if (!viewer || viewer.isDestroyed()) return;
-    viewer.trackedEntity = undefined;
-    setTrackedEntity(null);
-    setSelectedSkiPatrolId(null);
-    viewer.camera.flyTo({
-      destination: Cartesian3.fromDegrees(-106.8317, 40.4844, 120_000),
-      orientation: {
-        heading: CesiumMath.toRadians(0),
-        pitch: CesiumMath.toRadians(-60),
-        roll: 0,
-      },
-      duration: 2.5,
-    });
-  }, []);
-
   // Data hooks
-  const { earthquakes, feedItems: eqFeedItems } = useEarthquakes(layers.earthquakes);
-  const { flights: flightsGlobal, feedItems: fltFeedItems } = useFlights(layers.flights);
+  const { earthquakes } = useEarthquakes(layers.earthquakes);
+  const { flights: flightsGlobal } = useFlights(layers.flights);
   const { flightsLive } = useFlightsLive(
     layers.flights,
     camera.latitude,
@@ -145,27 +116,27 @@ function App() {
     camera.longitude,
     camera.altitude,
   );
-  // ships hook removed; layer not visible
 
-  // Geolocation hook — browser GPS (consent) + IP fallback
+  // Reticulum mesh network — always on
+  const {
+    nodes: reticulumNodes,
+    interfaces: reticulumInterfaces,
+    messages: reticulumMessages,
+    connected: reticulumConnected,
+    sendMessage: reticulumSend,
+    sending: reticulumSending,
+  } = useReticulum(true);
+
   const { location: geoLocation, status: geoStatus, locate: geoLocate } = useGeolocation();
 
-  // Fly to user's location when geolocation succeeds
   useEffect(() => {
     if (!geoLocation || geoStatus !== 'success') return;
     const viewer = viewerRef.current;
     if (!viewer || viewer.isDestroyed()) return;
-
-    // Choose altitude based on precision: GPS → street level, IP → city level
     const flyAltitude = geoLocation.source === 'gps' ? 5_000 : 200_000;
-
     viewer.trackedEntity = undefined;
     viewer.camera.flyTo({
-      destination: Cartesian3.fromDegrees(
-        geoLocation.longitude,
-        geoLocation.latitude,
-        flyAltitude,
-      ),
+      destination: Cartesian3.fromDegrees(geoLocation.longitude, geoLocation.latitude, flyAltitude),
       orientation: {
         heading: CesiumMath.toRadians(0),
         pitch: CesiumMath.toRadians(-90),
@@ -175,82 +146,33 @@ function App() {
     });
   }, [geoLocation, geoStatus]);
 
-  // Smart layer swap: live (adsb.fi 5s) replaces global (FR24 30s) for matching aircraft.
-  // Global aircraft outside the live region remain visible. Zero duplicates guaranteed.
   const flights = useMemo(() => {
     if (flightsLive.length === 0) return flightsGlobal;
     if (flightsGlobal.length === 0) return flightsLive;
-
-    // Set of icao24s in the live feed — these are EXCLUDED from global to prevent duplicates
     const liveIcaos = new Set(flightsLive.map((f) => f.icao24));
-
-    // Global flights NOT covered by live feed (outside the adsb.fi 250nm region)
     const globalOnly = flightsGlobal.filter((f) => !liveIcaos.has(f.icao24));
-
-    // Enrich live flights with FR24 route info where the live data is missing it
     const routeMap = new Map<string, { originAirport: string; destAirport: string; airline: string }>();
     for (const f of flightsGlobal) {
       if (f.originAirport || f.destAirport) {
-        routeMap.set(f.icao24, {
-          originAirport: f.originAirport,
-          destAirport: f.destAirport,
-          airline: f.airline,
-        });
+        routeMap.set(f.icao24, { originAirport: f.originAirport, destAirport: f.destAirport, airline: f.airline });
       }
     }
     const enrichedLive = flightsLive.map((f) => {
       const route = routeMap.get(f.icao24);
       if (route) {
-        return {
-          ...f,
-          originAirport: f.originAirport || route.originAirport,
-          destAirport: f.destAirport || route.destAirport,
-          airline: f.airline || route.airline,
-        };
+        return { ...f, originAirport: f.originAirport || route.originAirport, destAirport: f.destAirport || route.destAirport, airline: f.airline || route.airline };
       }
       return f;
     });
-
     return [...globalOnly, ...enrichedLive];
   }, [flightsGlobal, flightsLive]);
 
-  // Combine intel feed items
-  const allFeedItems: IntelFeedItem[] = [...fltFeedItems, ...eqFeedItems];
-
-  const handleIntelFeedLocationClick = useCallback((location: IntelFeedLocation) => {
-    const viewer = viewerRef.current;
-    if (!viewer || viewer.isDestroyed()) return;
-
-    audio.play('click');
-    viewer.trackedEntity = undefined;
-    setTrackedEntity(null);
-    setSelectedSkiPatrolId(null);
-    viewer.camera.flyTo({
-      destination: Cartesian3.fromDegrees(location.longitude, location.latitude, 1_500_000),
-      orientation: {
-        heading: CesiumMath.toRadians(0),
-        pitch: CesiumMath.toRadians(-90),
-        roll: 0,
-      },
-      duration: 2,
-    });
-  }, [audio]);
-
-  // Handlers
   const handleCameraChange = useCallback(
     (lat: number, lon: number, alt: number, heading: number, pitch: number) => {
       setCamera({ latitude: lat, longitude: lon, altitude: alt, heading, pitch });
     },
-    []
+    [],
   );
-
-  const handleLayerToggle = useCallback((layer: 'earthquakes') => {
-    setLayers((prev) => {
-      const next = !prev[layer as keyof typeof prev];
-      audio.play(next ? 'toggleOn' : 'toggleOff');
-      return { ...prev, [layer]: next };
-    });
-  }, [audio]);
 
   const handleLocateMe = useCallback(() => {
     const viewer = viewerRef.current;
@@ -266,41 +188,48 @@ function App() {
     if (!viewer || viewer.isDestroyed()) return;
     const entity = viewer.entities.getById(id);
     if (!entity) return;
-
     entity.viewFrom = new ConstantProperty(new Cartesian3(0, -3_500, 5_000));
     viewer.trackedEntity = entity;
     const description = typeof entity.description?.getValue(viewer.clock.currentTime) === 'string'
       ? entity.description.getValue(viewer.clock.currentTime)
       : '';
-
-    setTrackedEntity({
-      id,
-      name: entity.name || `Steamboat Patrol ${id}`,
-      entityType: 'steamboat',
-      description,
-    });
+    setTrackedEntity({ id, name: entity.name || `Steamboat Patrol ${id}`, entityType: 'steamboat', description });
     setSelectedSkiPatrolId(id);
   }, []);
 
+  const handleReticulumNodeClick = useCallback((node: { lat: number; lng: number; name: string }) => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+    audio.play('click');
+    viewer.trackedEntity = undefined;
+    setTrackedEntity(null);
+    setSelectedSkiPatrolId(null);
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(node.lng, node.lat, 5_000),
+      orientation: {
+        heading: CesiumMath.toRadians(0),
+        pitch: CesiumMath.toRadians(-60),
+        roll: 0,
+      },
+      duration: 2,
+    });
+  }, [audio]);
+
   const stableAltitudeFilter = useMemo(() => altitudeFilter, [altitudeFilter]);
 
-  // Boot complete callback — starts ambient drone
   const handleBootComplete = useCallback(() => {
     audio.play('bootComplete');
     audio.startAmbient();
     setBooted(true);
   }, [audio]);
 
-  // Splash screen
   if (!booted) {
     return <SplashScreen onComplete={handleBootComplete} />;
   }
 
   return (
     <div className="w-screen h-screen bg-wv-black overflow-hidden scanline-overlay">
-      {/* Animated film grain texture */}
       <FilmGrain opacity={0.06} />
-      {/* 3D Globe (fills entire viewport) */}
       <GlobeViewer
         shaderMode={shaderMode}
         mapTiles={mapTiles}
@@ -325,38 +254,41 @@ function App() {
           congestionMode={false}
         />
         <SteamboatDotsLayer selectedId={selectedSkiPatrolId} />
+        <ReticulumLayer
+          nodes={reticulumNodes}
+          visible={true}
+          isTracking={!!trackedEntity}
+        />
       </GlobeViewer>
 
-      {/* Tactical UI Overlay */}
       <Crosshair />
       <TrackedEntityPanel trackedEntity={trackedEntity} isMobile={isMobile} />
       <SkiPatrolMenu
         visible={trackedEntity?.entityType === 'steamboat'}
         selectedId={selectedSkiPatrolId}
-        onSelect={(id) => {
-          audio.play('click');
-          handleSelectSkiPatrol(id);
-        }}
+        onSelect={(id) => { audio.play('click'); handleSelectSkiPatrol(id); }}
         isMobile={isMobile}
       />
       <OperationsPanel
         shaderMode={shaderMode}
         onShaderChange={(mode) => { audio.play('shaderSwitch'); setShaderMode(mode); }}
-        layers={layers}
-        layerLoading={{}}
-        onLayerToggle={handleLayerToggle}
         mapTiles={mapTiles}
         onMapTilesChange={(t) => { audio.play('click'); setMapTiles(t); }}
         onResetView={() => { audio.play('click'); handleResetView(); }}
-        onGoToSteamboat={() => { audio.play('click'); handleGoToSteamboat(); }}
         onLocateMe={() => { audio.play('click'); handleLocateMe(); }}
         geoStatus={geoStatus}
         isMobile={isMobile}
+        nodes={reticulumNodes}
+        interfaces={reticulumInterfaces}
+        connected={reticulumConnected}
+        onNodeClick={handleReticulumNodeClick}
       />
-      <IntelFeed
-        items={allFeedItems}
+      <MessageLog
+        messages={reticulumMessages}
+        connected={reticulumConnected}
         isMobile={isMobile}
-        onLocationClick={handleIntelFeedLocationClick}
+        onSend={reticulumSend}
+        sending={reticulumSending}
       />
       <StatusBar
         camera={camera}
@@ -364,7 +296,15 @@ function App() {
         isMobile={isMobile}
         dataStatus={{
           earthquakes: earthquakes.length,
+          reticulumNodes: reticulumNodes.length,
         }}
+      />
+      <ReticulumPanel
+        nodes={reticulumNodes}
+        interfaces={reticulumInterfaces}
+        connected={reticulumConnected}
+        isMobile={isMobile}
+        onNodeClick={handleReticulumNodeClick}
       />
       <AudioToggle muted={audio.muted} onToggle={audio.toggleMute} isMobile={isMobile} />
     </div>

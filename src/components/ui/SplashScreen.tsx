@@ -6,8 +6,14 @@ interface SplashScreenProps {
 }
 
 const BOOT_LINES = [
-  'Reticulum Ski Patrol Network',
+  'Reticulum Mesh Network',
   '═════════════════════════════════════',
+  '',
+  'INITIALISING RNS STACK...',
+  'HELTEC V4 RNODE INTERFACE ONLINE',
+  'LXMF ROUTER ACTIVE',
+  'CESIUM 3D ENGINE LOADED',
+  'OSM TILE PROVIDER CONNECTED',
   '',
   'ALL SYSTEMS NORMAL',
   '',

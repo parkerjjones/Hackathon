@@ -897,6 +897,241 @@ async function startFlightPolling(bbox) {
   flightPollingInterval = setInterval(poll, 10_000); // Every 10s
 }
 
+// ─── Reticulum Mesh Network (Heltec GPS + RNS stats) ──────────
+
+import { readFileSync, existsSync } from 'fs';
+import { execSync } from 'child_process';
+
+const PI_HOST = '10.0.0.164';
+const PI_USER = 'pats-pi4';
+const PI_PASS = 'pat';
+const reticulumCache = { piGps: null, piGpsTime: 0, rnStats: null, rnStatsTime: 0 };
+
+function readLocalGps() {
+  try {
+    if (existsSync('/tmp/gps.json')) {
+      return JSON.parse(readFileSync('/tmp/gps.json', 'utf8'));
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function readPiGps() {
+  const now = Date.now();
+  if (reticulumCache.piGps && now - reticulumCache.piGpsTime < 5000) {
+    return reticulumCache.piGps;
+  }
+  try {
+    const result = execSync(
+      `sshpass -p '${PI_PASS}' ssh -o StrictHostKeyChecking=no -o ConnectTimeout=3 -o PreferredAuthentications=password ${PI_USER}@${PI_HOST} 'cat /tmp/gps.json 2>/dev/null'`,
+      { timeout: 6000, encoding: 'utf8' }
+    );
+    const data = JSON.parse(result.trim());
+    reticulumCache.piGps = data;
+    reticulumCache.piGpsTime = now;
+    return data;
+  } catch {
+    return reticulumCache.piGps;
+  }
+}
+
+function readRnStatus() {
+  const now = Date.now();
+  if (reticulumCache.rnStats && now - reticulumCache.rnStatsTime < 5000) {
+    return reticulumCache.rnStats;
+  }
+  try {
+    const raw = execSync('rnstatus 2>/dev/null || /Library/Frameworks/Python.framework/Versions/3.11/bin/rnstatus 2>/dev/null', {
+      timeout: 5000, encoding: 'utf8'
+    });
+    const stats = { interfaces: [], raw: raw.trim() };
+    const blocks = raw.split(/\n\s*\n/);
+    for (const block of blocks) {
+      const nameMatch = block.match(/(\w+Interface)\[([^\]]+)\]/);
+      if (!nameMatch) continue;
+      const iface = { type: nameMatch[1], name: nameMatch[2] };
+      const statusMatch = block.match(/Status\s*:\s*(\w+)/);
+      if (statusMatch) iface.status = statusMatch[1];
+      const noiseMatch = block.match(/Noise Fl\.\s*:\s*(-?\d+)\s*dBm/);
+      if (noiseMatch) iface.noiseFloor = parseInt(noiseMatch[1]);
+      const battMatch = block.match(/Battery\s*:\s*(\d+)%/);
+      if (battMatch) iface.battery = parseInt(battMatch[1]);
+      const tempMatch = block.match(/CPU temp\s*:\s*(\d+)/);
+      if (tempMatch) iface.cpuTemp = parseInt(tempMatch[1]);
+      const rateMatch = block.match(/Rate\s*:\s*([\d.]+\s*\w+)/);
+      if (rateMatch) iface.rate = rateMatch[1];
+      const airtimeMatch = block.match(/Airtime\s*:\s*([\d.]+%)/);
+      if (airtimeMatch) iface.airtime = airtimeMatch[1];
+      const txMatch = block.match(/↑([\d.]+\s*\w+)/);
+      if (txMatch) iface.tx = txMatch[1];
+      const rxMatch = block.match(/↓([\d.]+\s*\w+)/);
+      if (rxMatch) iface.rx = rxMatch[1];
+      const peersMatch = block.match(/Peers\s*:\s*(\d+)/);
+      if (peersMatch) iface.peers = parseInt(peersMatch[1]);
+      stats.interfaces.push(iface);
+    }
+    reticulumCache.rnStats = stats;
+    reticulumCache.rnStatsTime = now;
+    return stats;
+  } catch {
+    return reticulumCache.rnStats || { interfaces: [], raw: '' };
+  }
+}
+
+/** GET /api/reticulum — combined Heltec GPS + RNS network data */
+app.get('/api/reticulum', async (_req, res) => {
+  try {
+    const macGps = readLocalGps();
+    const piGps = readPiGps();
+    const rnStats = readRnStatus();
+
+    const nodes = [];
+    if (piGps && piGps.lat && piGps.lng) {
+      nodes.push({
+        id: 'pi-heltec',
+        name: 'Pi RNode',
+        lat: piGps.lat,
+        lng: piGps.lng,
+        lastUpdate: piGps.t || 0,
+        type: 'rnode',
+        host: 'raspberry-pi',
+      });
+    }
+    if (macGps && macGps.lat && macGps.lng) {
+      nodes.push({
+        id: 'mac-heltec',
+        name: 'Mac RNode',
+        lat: macGps.lat,
+        lng: macGps.lng,
+        lastUpdate: macGps.t || 0,
+        type: 'rnode',
+        host: 'macbook',
+      });
+    }
+
+    // Check for remote GPS (beaconed nodes)
+    try {
+      if (existsSync('/tmp/remote_gps.json')) {
+        const remoteData = JSON.parse(readFileSync('/tmp/remote_gps.json', 'utf8'));
+        for (const [src, info] of Object.entries(remoteData)) {
+          if (info.lat && info.lng) {
+            nodes.push({
+              id: `remote-${src.slice(1, 9)}`,
+              name: `Node ${src.slice(1, 7)}`,
+              lat: info.lat,
+              lng: info.lng,
+              lastUpdate: info.t || 0,
+              type: 'remote',
+              host: 'unknown',
+            });
+          }
+        }
+      }
+    } catch { /* ignore */ }
+
+    const messages = readLxmfMessages();
+
+    res.json({
+      nodes,
+      network: rnStats,
+      messages,
+      timestamp: Date.now(),
+    });
+  } catch (err) {
+    console.error('[RNS] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── LXMF Send Message ───────────────────────────────────────
+
+const LXMF_TARGETS = {
+  'pi-heltec': 'f12d097e7cad57176da98a52a4d2e3e7',
+  'mac-heltec': '1286684ff84d3b86d25a0860b26e5ac2',
+};
+
+app.post('/api/reticulum/send', (req, res) => {
+  const { target, title, body } = req.body || {};
+  if (!target || !body) {
+    return res.status(400).json({ ok: false, error: 'target and body required' });
+  }
+  const destHex = LXMF_TARGETS[target];
+  if (!destHex) {
+    return res.status(400).json({ ok: false, error: `Unknown target: ${target}` });
+  }
+  const safeTitle = (title || 'Message').replace(/'/g, '');
+  const safeBody = body.replace(/'/g, '');
+
+  const scriptPath = new URL('./send_lxmf.py', import.meta.url).pathname;
+
+  try {
+    const result = execSync(
+      `python3 '${scriptPath}' '${destHex}' '${safeTitle}' '${safeBody}'`,
+      { timeout: 45000, encoding: 'utf8' }
+    );
+    const parsed = JSON.parse(result.trim());
+    res.json(parsed);
+  } catch (err) {
+    const stderr = err.stderr || '';
+    const stdout = err.stdout || '';
+    let parsed;
+    try { parsed = JSON.parse(stdout.trim()); } catch { /* ignore */ }
+    res.status(500).json(parsed || { ok: false, error: stderr || 'send failed' });
+  }
+});
+
+// ─── LXMF Message Log ────────────────────────────────────────
+
+const msgCache = { piMsgs: null, piMsgsTime: 0 };
+
+function readLxmfMessages() {
+  const messages = [];
+
+  // Local messages (Mac)
+  try {
+    if (existsSync('/tmp/meshviz_msgs.json')) {
+      const local = JSON.parse(readFileSync('/tmp/meshviz_msgs.json', 'utf8'));
+      if (Array.isArray(local)) messages.push(...local);
+    }
+  } catch { /* ignore */ }
+
+  // Pi messages via SSH (cached 10s)
+  const now = Date.now();
+  if (!msgCache.piMsgs || now - msgCache.piMsgsTime > 10000) {
+    try {
+      const result = execSync(
+        `sshpass -p '${PI_PASS}' ssh -o StrictHostKeyChecking=no -o ConnectTimeout=3 -o PreferredAuthentications=password ${PI_USER}@${PI_HOST} 'cat /tmp/meshviz_msgs.json 2>/dev/null'`,
+        { timeout: 6000, encoding: 'utf8' }
+      );
+      const piMsgs = JSON.parse(result.trim());
+      if (Array.isArray(piMsgs)) {
+        msgCache.piMsgs = piMsgs;
+        msgCache.piMsgsTime = now;
+      }
+    } catch {
+      // keep stale cache
+    }
+  }
+  if (msgCache.piMsgs) messages.push(...msgCache.piMsgs);
+
+  // Deduplicate by content+timestamp, sort newest first
+  const seen = new Set();
+  const unique = [];
+  for (const m of messages) {
+    const key = `${m.ts || ''}:${m.src || ''}:${m.msg || ''}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(m);
+    }
+  }
+  unique.sort((a, b) => {
+    const ta = a.ts || '';
+    const tb = b.ts || '';
+    return tb.localeCompare(ta);
+  });
+  return unique.slice(0, 50);
+}
+
 // ─── Export for Vercel Serverless ──────────────────────────────
 export { app };
 export default app;

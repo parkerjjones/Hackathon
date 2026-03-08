@@ -13,6 +13,7 @@ interface StatusBarProps {
   shaderMode: string;
   dataStatus: {
     earthquakes: number;
+    reticulumNodes?: number;
   };
   isMobile?: boolean;
 }
@@ -88,6 +89,11 @@ export default function StatusBar({ camera, shaderMode, dataStatus, isMobile = f
 
       {/* Right: Data feeds + shader */}
       <div className="flex gap-4">
+        {dataStatus.reticulumNodes != null && (
+          <span>
+            RNS <span className={dataStatus.reticulumNodes > 0 ? 'text-wv-green' : 'text-wv-muted'}>{dataStatus.reticulumNodes}</span>
+          </span>
+        )}
         <span>
           SEIS <span className={dataStatus.earthquakes > 0 ? 'text-wv-amber' : 'text-wv-muted'}>{dataStatus.earthquakes}</span>
         </span>
