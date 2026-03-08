@@ -11,7 +11,7 @@ const BOOT_LINES = [
   'Reticulum Ski Patrol Network',
   '═════════════════════════════════════',
   '',
-  'ALL SYSTEMS NOMINAL',
+  'ALL SYSTEMS NORMAL',
   '',
   '▶ PRESS ANY KEY TO ENTER',
 ];
@@ -123,6 +123,12 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
           <span className="inline-block w-2 h-3 bg-wv-green animate-pulse" />
         )}
       </div>
+
+      {ready && (
+        <div className="absolute inset-x-0 bottom-8 text-center text-[10px] tracking-widest text-wv-muted/80">
+          BY PATRICK AND PARKER
+        </div>
+      )}
     </div>
   );
 }
