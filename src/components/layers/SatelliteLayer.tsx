@@ -12,8 +12,8 @@ import { propagate, eciToGeodetic, gstime, degreesLat, degreesLong } from 'satel
 import type { SatellitePosition } from '../../hooks/useSatellites';
 
 // Stable colour constants — avoids creating new Color objects every 2 s render
-const SAT_COLOR_ISS = Color.fromCssColorString('#00D4FF');
-const SAT_COLOR_DEFAULT = Color.fromCssColorString('#39FF14');
+const SAT_COLOR_ISS = Color.fromCssColorString('#333333'); // Dark gray for ISS
+const SAT_COLOR_DEFAULT = Color.fromCssColorString('#222222'); // Darker gray for other satellites
 
 /** Satellite category type for filtering */
 export type SatelliteCategory = 'iss' | 'other';

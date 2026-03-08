@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { AudioControls } from '../../hooks/useAudio';
-import type { SoundEffect } from '../../lib/audio';
+
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -8,7 +8,7 @@ interface SplashScreenProps {
 }
 
 const BOOT_LINES = [
-  'Reticulum Network',
+  'Reticulum Ski Patrol Network',
   '═════════════════════════════════════',
   '',
   'ALL SYSTEMS NOMINAL',
@@ -16,44 +16,26 @@ const BOOT_LINES = [
   '▶ PRESS ANY KEY TO ENTER',
 ];
 
-/** Pick the right sound effect based on line content. */
-function getSoundForLine(line: string): SoundEffect | null {
-  if (line === '') return null;
-  if (line.includes('WORLDVIEW')) return 'bootSweep';
-  if (line.includes('═')) return 'bootSeparator';
-  if (line.includes('NOMINAL')) return 'bootReady';
-  if (line.includes('PRESS')) return 'bootOk';
-  if (line.includes('CONNECTING')) return 'bootConnect';
-  if (line.includes('LOADING') || line.includes('COMPILING') || line.includes('BUILDING') || line.includes('INITIALISING')) return 'bootLoad';
-  return 'bootTick';
-}
+
 
 /** Typing speed per character for lines that use the typewriter effect. */
 const CHAR_SPEED = 12; // ms per character
 
-export default function SplashScreen({ onComplete, audio }: SplashScreenProps) {
+export default function SplashScreen({ onComplete }: SplashScreenProps) {
   const [visibleLines, setVisibleLines] = useState(0);
   const [typedChars, setTypedChars] = useState(0); // chars revealed in the current line
   const [ready, setReady] = useState(false);
-  const soundPlayedRef = useRef<Set<number>>(new Set());
+  
 
   // Current line being typed
   const currentLine = BOOT_LINES[visibleLines] ?? '';
   const isTypingLine = visibleLines < BOOT_LINES.length && currentLine.length > 0;
   const isFullyTyped = typedChars >= currentLine.length;
 
-  // Play sound when a new line starts typing
-  useEffect(() => {
-    if (visibleLines >= BOOT_LINES.length) return;
-    if (soundPlayedRef.current.has(visibleLines)) return;
 
-    const line = BOOT_LINES[visibleLines];
-    const sound = getSoundForLine(line);
-    if (sound) {
-      soundPlayedRef.current.add(visibleLines);
-      audio?.play(sound);
-    }
-  }, [visibleLines, audio]);
+
+    
+ 
 
   // Typewriter: reveal one character at a time for non-empty lines
   useEffect(() => {
@@ -78,7 +60,7 @@ export default function SplashScreen({ onComplete, audio }: SplashScreenProps) {
     }
 
     // Line fully typed — pause, then move to the next
-    const pauseMs = line.includes('NOMINAL') ? 400 : line.includes('WORLDVIEW') ? 300 : 120;
+    const pauseMs = line.includes('Normal') ? 400 : line.includes('WORLDVIEW') ? 300 : 120;
     const timer = setTimeout(() => {
       setTypedChars(0);
       setVisibleLines((v) => v + 1);
@@ -141,7 +123,7 @@ function getLineClass(line: string): string {
   if (line.includes('OK')) return 'text-wv-green';
   if (line.includes('PRESS')) return 'text-wv-cyan glow-cyan animate-pulse';
   if (line.includes('═')) return 'text-wv-border';
-  if (line.includes('NOMINAL')) return 'text-wv-green glow-green font-bold';
+  if (line.includes('NORMAL')) return 'text-wv-green glow-green font-bold';
   if (line.includes('WORLDVIEW')) return 'text-wv-cyan glow-cyan font-bold text-sm';
   return 'text-wv-muted';
 }

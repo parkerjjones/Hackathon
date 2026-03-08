@@ -142,9 +142,10 @@ export default function GlobeViewer({ shaderMode, mapTiles, onCameraChange, onVi
     // Configure globe defaults
     const globe = viewer.scene.globe;
     if (globe) {
-      globe.baseColor = Color.BLACK;
+      globe.baseColor = Color.fromCssColorString('#001122'); // Dark blue instead of black for more opacity
       globe.depthTestAgainstTerrain = true;
       globe.showGroundAtmosphere = true;
+      globe.enableLighting = false; // Disable sun shading
       globe.translucency.enabled = false;
       globe.translucency.frontFaceAlpha = 1.0;
       globe.translucency.backFaceAlpha = 1.0;
