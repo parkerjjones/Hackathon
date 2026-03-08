@@ -5,6 +5,7 @@ import EarthquakeLayer from './components/layers/EarthquakeLayer';
 import SatelliteLayer from './components/layers/SatelliteLayer';
 import FlightLayer from './components/layers/FlightLayer';
 import TrafficLayer from './components/layers/TrafficLayer';
+import SteamboatDotsLayer from './components/layers/SteamboatDotsLayer';
 import type { AltitudeBand } from './components/layers/FlightLayer';
 import type { SatelliteCategory } from './components/layers/SatelliteLayer';
 import OperationsPanel from './components/ui/OperationsPanel';
@@ -109,6 +110,22 @@ function App() {
         roll: 0,
       },
       duration: 2,
+    });
+  }, []);
+
+  const handleGoToSteamboat = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || viewer.isDestroyed()) return;
+    viewer.trackedEntity = undefined;
+    setTrackedEntity(null);
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromDegrees(-106.8317, 40.4844, 120_000),
+      orientation: {
+        heading: CesiumMath.toRadians(0),
+        pitch: CesiumMath.toRadians(-60),
+        roll: 0,
+      },
+      duration: 2.5,
     });
   }, []);
 
@@ -275,6 +292,7 @@ function App() {
           showVehicles={true}
           congestionMode={false}
         />
+        <SteamboatDotsLayer />
       </GlobeViewer>
 
       {/* Tactical UI Overlay */}
@@ -297,6 +315,7 @@ function App() {
         satCategoryFilter={satCategoryFilter}
         onSatCategoryToggle={handleSatCategoryToggle}
         onResetView={() => { audio.play('click'); handleResetView(); }}
+        onGoToSteamboat={() => { audio.play('click'); handleGoToSteamboat(); }}
         onLocateMe={() => { audio.play('click'); geoLocate(); }}
         geoStatus={geoStatus}
         isMobile={isMobile}

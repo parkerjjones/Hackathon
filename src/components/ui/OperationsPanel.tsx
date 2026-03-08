@@ -27,6 +27,7 @@ interface OperationsPanelProps {
   satCategoryFilter: Record<SatelliteCategory, boolean>;
   onSatCategoryToggle: (category: SatelliteCategory) => void;
   onResetView: () => void;
+  onGoToSteamboat: () => void;
   onLocateMe: () => void;
   geoStatus: GeoStatus;
   isMobile: boolean;
@@ -63,6 +64,7 @@ export default function OperationsPanel({
   satCategoryFilter,
   onSatCategoryToggle,
   onResetView,
+  onGoToSteamboat,
   onLocateMe,
   geoStatus,
   isMobile,
@@ -235,6 +237,16 @@ export default function OperationsPanel({
                 : 'LOCATE ME'
             }
           </span>
+        </button>
+        <button
+          onClick={onGoToSteamboat}
+          className={`w-full px-3 py-2 rounded text-[10px] font-bold tracking-wider
+            text-wv-cyan bg-wv-cyan/10 hover:bg-wv-cyan/20
+            transition-all duration-200 flex items-center justify-center gap-2
+            ${isMobile ? 'min-h-[48px] text-[12px]' : ''}`}
+        >
+          <span>▣</span>
+          <span>STEAMBOAT</span>
         </button>
         <button
           onClick={onResetView}
