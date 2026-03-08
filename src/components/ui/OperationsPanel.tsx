@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { ShaderMode } from '../../shaders/postprocess';
-import type { AltitudeBand } from '../layers/FlightLayer';
 import type { GeoStatus } from '../../hooks/useGeolocation';
 import MobileModal from './MobileModal';
 
@@ -16,10 +15,6 @@ interface OperationsPanelProps {
   layerLoading?: Partial<Record<'earthquakes', boolean>>;
   mapTiles: 'google' | 'osm';
   onMapTilesChange: (tile: 'google' | 'osm') => void;
-  showPaths: boolean;
-  onShowPathsToggle: () => void;
-  altitudeFilter: Record<AltitudeBand, boolean>;
-  onAltitudeToggle: (band: AltitudeBand) => void;
   onResetView: () => void;
   onGoToSteamboat: () => void;
   onLocateMe: () => void;

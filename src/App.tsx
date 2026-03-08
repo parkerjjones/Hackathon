@@ -62,8 +62,8 @@ function App() {
   });
 
   // State: flight sub-toggles
-  const [showPaths, setShowPaths] = useState(false);
-  const [altitudeFilter, setAltitudeFilter] = useState<Record<AltitudeBand, boolean>>(DEFAULT_ALTITUDE_FILTER);
+  const [showPaths] = useState(false);
+  const [altitudeFilter] = useState<Record<AltitudeBand, boolean>>(DEFAULT_ALTITUDE_FILTER);
 
   // State: camera position
   const [camera, setCamera] = useState({
@@ -252,11 +252,6 @@ function App() {
     });
   }, [audio]);
 
-  const handleAltitudeToggle = useCallback((band: AltitudeBand) => {
-    audio.play('click');
-    setAltitudeFilter((prev) => ({ ...prev, [band]: !prev[band] }));
-  }, [audio]);
-
   const handleLocateMe = useCallback(() => {
     const viewer = viewerRef.current;
     if (!viewer || viewer.isDestroyed()) return;
@@ -298,7 +293,7 @@ function App() {
 
   // Splash screen
   if (!booted) {
-    return <SplashScreen onComplete={handleBootComplete} audio={audio} />;
+    return <SplashScreen onComplete={handleBootComplete} />;
   }
 
   return (
@@ -352,10 +347,6 @@ function App() {
         onLayerToggle={handleLayerToggle}
         mapTiles={mapTiles}
         onMapTilesChange={(t) => { audio.play('click'); setMapTiles(t); }}
-        showPaths={showPaths}
-        onShowPathsToggle={() => { audio.play('click'); setShowPaths((p) => !p); }}
-        altitudeFilter={altitudeFilter}
-        onAltitudeToggle={handleAltitudeToggle}
         onResetView={() => { audio.play('click'); handleResetView(); }}
         onGoToSteamboat={() => { audio.play('click'); handleGoToSteamboat(); }}
         onLocateMe={() => { audio.play('click'); handleLocateMe(); }}

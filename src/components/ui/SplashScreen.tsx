@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
-import type { AudioControls } from '../../hooks/useAudio';
 
 
 interface SplashScreenProps {
   onComplete: () => void;
-  audio?: AudioControls;
 }
 
 const BOOT_LINES = [
@@ -60,7 +58,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
     }
 
     // Line fully typed — pause, then move to the next
-    const pauseMs = line.includes('Normal') ? 400 : line.includes('WORLDVIEW') ? 300 : 120;
+    const pauseMs = line.includes('NORMAL') ? 400 : line.includes('WORLDVIEW') ? 300 : 120;
     const timer = setTimeout(() => {
       setTypedChars(0);
       setVisibleLines((v) => v + 1);
